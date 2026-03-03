@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Jeu de Tapatan</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --bg-main: linear-gradient(135deg, #111827, #1f2937);
+            --bg-panel: rgba(31, 41, 55, 0.9);
+            --node-bg: #374151;
+            --node-border: #1f2937;
+            --node-hover: #4b5563;
+        }
+        [data-theme="foret"] { --bg-main: radial-gradient(circle at top left, #064e3b, #022c22); --bg-panel: rgba(6, 95, 70, 0.85); --node-bg: #059669; --node-border: #022c22; --node-hover: #10b981; }
+        [data-theme="savane"] { --bg-main: linear-gradient(to bottom, #b45309, #78350f); --bg-panel: rgba(146, 64, 14, 0.85); --node-bg: #d97706; --node-border: #451a03; --node-hover: #f59e0b; }
+        [data-theme="desert"] { --bg-main: radial-gradient(ellipse at bottom, #ea580c, #7c2d12); --bg-panel: rgba(154, 52, 18, 0.85); --node-bg: #f97316; --node-border: #431407; --node-hover: #fdba74; }
+        [data-theme="montagne"] { --bg-main: linear-gradient(135deg, #475569, #0f172a); --bg-panel: rgba(30, 41, 59, 0.85); --node-bg: #94a3b8; --node-border: #020617; --node-hover: #cbd5e1; }
+        [data-theme="littoral"] { --bg-main: linear-gradient(to right bottom, #fde047 0%, #38bdf8 50%, #0369a1 100%); --bg-panel: rgba(7, 89, 133, 0.85); --node-bg: #fef08a; --node-border: #ca8a04; --node-hover: #fef9c3; }
+
+        body { overscroll-behavior-y: contain; touch-action: none; }
+
+        @keyframes dropIn { 0% { transform: translateY(-30px) scale(0.5) rotate(-20deg); opacity: 0; } 60% { transform: translateY(5px) scale(1.1) rotate(10deg); opacity: 1; } 100% { transform: translateY(0) scale(1) rotate(0deg); opacity: 1; } }
+        .symbol-animate { animation: dropIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5)); will-change: transform; }
+        
+        .last-move-glow { box-shadow: 0 0 15px 5px rgba(255, 255, 255, 0.5) !important; border-color: rgba(255, 255, 255, 0.8) !important; z-index: 12 !important; }
+
+        @keyframes pulse-glow { 0%, 100% { box-shadow: 0 0 15px rgba(255, 255, 255, 0.4); transform: translate(-50%, -50%) scale(1.1); } 50% { box-shadow: 0 0 30px rgba(255, 255, 255, 0.8); transform: translate(-50%, -50%) scale(1.25); } }
+        .victory-glow { animation: pulse-glow 1.5s infinite; background-color: #fff !important; border-color: #fcd34d !important; z-index: 20 !important; }
+        
+        .node { position: absolute; transform: translate(-50%, -50%); width: 44px; height: 44px; border-radius: 50%; background-color: var(--node-bg); border: 4px solid var(--node-border); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background-color 0.3s, box-shadow 0.3s, border-color 0.3s, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); z-index: 10; }
+        .node:hover { background-color: var(--node-hover); transform: translate(-50%, -50%) scale(1.1); z-index: 12; }
+        .node:active { transform: translate(-50%, -50%) scale(0.95); }
+        .node.selected { box-shadow: 0 0 0 5px #fbbf24; transform: translate(-50%, -50%) scale(1.2); z-index: 15; }
+        .node.valid-target { background-color: #10b981; animation: pulse 1.5s infinite; }
+        
+        @keyframes dropBounce { 0% { transform: translate(-50%, -50%) scale(1); } 50% { transform: translate(-50%, -50%) scale(1.3); } 100% { transform: translate(-50%, -50%) scale(1); } }
+        .drop-bounce { animation: dropBounce 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .theme-transition { transition: background 0.8s ease, border-color 0.8s ease; }
+        .line-transition { transition: stroke 0.8s ease, stroke-width 0.8s ease; }
+
+        .pion-circle { width: 34px; height: 34px; background-color: #38bdf8; border-radius: 50%; box-shadow: 0 0 15px rgba(56,189,248,0.6); }
+        .pion-square { width: 30px; height: 30px; border: 5px solid #f472b6; border-radius: 4px; box-shadow: 0 0 15px rgba(244,114,182,0.6); }
+
+        .modal-enter { opacity: 0; pointer-events: none; transform: scale(0.95); }
+        .modal-active { opacity: 1; pointer-events: auto; transform: scale(1); }
+        
+        #chat-messages::-webkit-scrollbar { width: 4px; }
+        #chat-messages::-webkit-scrollbar-thumb { background-color: #4b5563; border-radius: 2px; }
+    </style>
+</head>
+<body class="theme-transition text-white flex flex-col items-center justify-center min-h-screen font-sans selection:bg-gray-700 overflow-hidden" style="background: var(--bg-main);">
+
+    <svg style="display: none;">
+        <defs>
+            <filter id="sand-draw"><feTurbulence type="fractalNoise" baseFrequency="0.03" numOctaves="3" result="noise" /><feDisplacementMap in="SourceGraphic" in2="noise" scale="12" xChannelSelector="R" yChannelSelector="G" /></filter>
+            <filter id="wood"><feTurbulence type="turbulence" baseFrequency="0.05" numOctaves="2" result="noise" /><feDisplacementMap in="SourceGraphic" in2="noise" scale="8" xChannelSelector="R" yChannelSelector="G" /></filter>
+            <filter id="rock"><feTurbulence type="fractalNoise" baseFrequency="0.1" numOctaves="1" result="noise" /><feDisplacementMap in="SourceGraphic" in2="noise" scale="5" xChannelSelector="R" yChannelSelector="G" /></filter>
+        </defs>
+    </svg>
+
+    <div id="drag-ghost" style="display:none; position:fixed; pointer-events:none; z-index:9999; transform: translate(-50%, -50%);"></div>
+
+    <!-- MODALE DE PARAMÈTRES -->
+    <div id="settings-modal" class="fixed inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-sm transition-all duration-300 modal-enter">
+        <div class="bg-gray-800 border border-gray-600 rounded-3xl p-6 w-[90%] max-w-sm max-h-[90vh] overflow-y-auto shadow-2xl">
+            <h2 class="text-2xl font-bold mb-4 text-center text-white border-b border-gray-700 pb-2" data-i18n="settings_title">Paramètres & Profil</h2>
+            
+            <div class="flex flex-col gap-4">
+                
+                <!-- SÉLECTEUR DE LANGUE -->
+                <div class="flex items-center justify-between bg-gray-900 p-2 rounded-xl border border-gray-600">
+                    <label class="text-xs text-gray-300 font-bold ml-1" data-i18n="lang_label">🌐 Langue / Language</label>
+                    <select id="lang-select" onchange="changeLanguage()" class="bg-gray-800 text-white py-1 px-2 rounded-lg border border-gray-600 outline-none focus:border-blue-400 text-xs">
+                        <option value="fr">🇫🇷 Français</option>
+                        <option value="en">🇬🇧 English UK</option>
+                    </select>
+                </div>
+
+                <div class="bg-gray-900/50 p-4 rounded-xl border border-gray-700 shadow-inner">
+                    <label for="player-name-input" class="text-xs text-gray-400 uppercase font-bold mb-1 ml-1 flex justify-between">
+                        <span data-i18n="profile_label">Profil (Ton Pseudo)</span>
+                        <span id="network-status" class="text-[10px] text-yellow-500 animate-pulse" data-i18n="network_disconnected">Déconnecté</span>
+                    </label>
+                    <div class="flex gap-2 mb-1">
+                        <input type="text" id="player-name-input" onchange="updatePlayerId()" class="bg-gray-800 text-white py-2 px-3 rounded-lg border border-gray-600 outline-none focus:border-blue-400 transition-colors flex-1 font-bold" placeholder="Pseudo">
+                        <div id="player-tag-display" class="bg-gray-900 text-blue-400 py-2 px-3 rounded-lg border border-gray-700 font-mono text-sm flex items-center select-all cursor-help" title="ID">#0000</div>
+                    </div>
+                    <div class="text-[10px] text-gray-500 mb-3 ml-1" data-i18n="unique_id_help">Ton ID complet (Pseudo + Tag) est unique.</div>
+                    
+                    <div class="flex justify-between text-center gap-2">
+                        <div class="bg-gray-800 p-2 rounded-lg flex-1 border border-gray-600"><div class="text-lg">🎮</div><div id="stat-played" class="font-bold text-blue-400 text-lg">0</div><div class="text-[9px] text-gray-400 uppercase" data-i18n="stat_played">Parties</div></div>
+                        <div class="bg-gray-800 p-2 rounded-lg flex-1 border border-gray-600"><div class="text-lg">🏆</div><div id="stat-wins" class="font-bold text-green-400 text-lg">0</div><div class="text-[9px] text-gray-400 uppercase" data-i18n="stat_wins">Victoires</div></div>
+                        <div class="bg-gray-800 p-2 rounded-lg flex-1 border border-gray-600"><div class="text-lg">💀</div><div id="stat-losses" class="font-bold text-red-400 text-lg">0</div><div class="text-[9px] text-gray-400 uppercase" data-i18n="stat_losses">Défaites</div></div>
+                    </div>
+                </div>
+
+                <div class="flex flex-col">
+                    <label for="game-mode" class="text-xs text-gray-400 uppercase font-bold mb-1 ml-1" data-i18n="mode_label">Mode de jeu</label>
+                    <select id="game-mode" onchange="handleModeChange()" class="bg-gray-900 text-white py-2 px-3 rounded-xl border border-gray-600 outline-none focus:border-blue-400 transition-colors cursor-pointer w-full text-base">
+                        <option value="solo" data-i18n="mode_solo">👤 vs 🤖 IA Locale</option>
+                        <option value="online_friend" data-i18n="mode_friend">🌐 Défier un ami (Temps Réel)</option>
+                        <option value="online_random" data-i18n="mode_random">🌍 Matchmaking (Aléatoire)</option>
+                    </select>
+                </div>
+                
+                <div id="ai-level-container" class="flex flex-col transition-all duration-300 overflow-hidden">
+                    <label for="ai-level" class="text-xs text-gray-400 uppercase font-bold mb-1 ml-1" data-i18n="ai_label">Niveau de l'IA</label>
+                    <select id="ai-level" onchange="saveSettings()" class="bg-gray-900 text-white py-2 px-3 rounded-xl border border-gray-600 outline-none focus:border-blue-400 transition-colors cursor-pointer w-full text-base">
+                        <option value="facile" data-i18n="ai_easy">Facile</option>
+                        <option value="normal" selected data-i18n="ai_normal">Normal</option>
+                        <option value="difficile" data-i18n="ai_hard">Difficile</option>
+                        <option value="monstre" data-i18n="ai_monster">Monstre 👹</option>
+                    </select>
+                </div>
+
+                <div id="opponent-id-container" class="flex flex-col transition-all duration-300 overflow-hidden" style="height: 0px; opacity: 0; margin-top: -1rem;">
+                    <label for="opponent-id-input" class="text-xs text-gray-400 uppercase font-bold mb-1 ml-1" data-i18n="challenge_label">Défier un joueur</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="opponent-id-input" list="known-opponents" class="bg-gray-900 text-white py-2 px-3 rounded-xl border border-gray-600 outline-none focus:border-blue-400 transition-colors flex-1 text-base font-bold" data-i18n-placeholder="challenge_placeholder" placeholder="Ex: Alex#1234">
+                        <datalist id="known-opponents"></datalist>
+                        <button onclick="sendOnlineInvite()" id="btn-defier" class="bg-blue-600 hover:bg-blue-500 text-white px-4 rounded-xl font-bold transition-colors shadow-md border border-blue-400 opacity-50 cursor-not-allowed" disabled data-i18n="btn_challenge">Défier</button>
+                    </div>
+                </div>
+
+                <div id="matchmaking-container" class="flex flex-col transition-all duration-300 overflow-hidden" style="height: 0px; opacity: 0; margin-top: -1rem;">
+                    <div class="bg-blue-900/40 p-4 rounded-xl border border-blue-500/50 flex flex-col items-center text-center">
+                        <p class="text-sm text-blue-200 mb-3" data-i18n="matchmake_desc">Trouvez un adversaire disponible n'importe où dans le monde.</p>
+                        <button onclick="startMatchmaking()" id="btn-matchmake" class="w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-400 hover:to-indigo-500 text-white py-3 rounded-xl font-black tracking-wider transition-all shadow-lg border-2 border-blue-400 opacity-50 cursor-not-allowed" disabled data-i18n="btn_matchmake">
+                            🔍 Chercher une partie
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex flex-col">
+                    <label for="game-theme" class="text-xs text-gray-400 uppercase font-bold mb-1 ml-1" data-i18n="theme_label">Thème visuel</label>
+                    <select id="game-theme" onchange="changeTheme()" class="bg-gray-900 text-white py-2 px-3 rounded-xl border border-gray-600 outline-none focus:border-blue-400 transition-colors cursor-pointer w-full text-base">
+                        <option value="defaut" data-i18n="theme_classic">Classique</option>
+                        <option value="littoral" data-i18n="theme_beach">🌊 Littoral</option>
+                        <option value="foret" data-i18n="theme_forest">🌲 Forêt</option>
+                        <option value="savane" data-i18n="theme_savanna">🦁 Savane</option>
+                        <option value="desert" data-i18n="theme_desert">🐪 Désert</option>
+                        <option value="montagne" data-i18n="theme_mountain">⛰️ Montagne</option>
+                    </select>
+                </div>
+
+                <div class="flex items-center justify-between bg-gray-900 p-3 rounded-xl border border-gray-600">
+                    <label class="text-sm text-gray-300 font-bold flex items-center gap-2" data-i18n="sound_label"><span>🎵</span> Effets Sonores (SFX)</label>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="sound-toggle" onchange="toggleSound()" class="sr-only peer" checked>
+                        <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-500"></div>
+                    </label>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2 mt-2">
+                    <button onclick="openInfoModal('aide')" class="bg-gray-700 hover:bg-gray-600 text-gray-300 py-2 rounded-lg text-sm font-semibold transition-colors border border-gray-600" data-i18n="btn_help">Aide</button>
+                    <button onclick="openInfoModal('regles')" class="bg-gray-700 hover:bg-gray-600 text-gray-300 py-2 rounded-lg text-sm font-semibold transition-colors border border-gray-600" data-i18n="btn_rules">Règles</button>
+                    <button onclick="openInfoModal('cgu')" class="bg-gray-700 hover:bg-gray-600 text-gray-300 py-2 rounded-lg text-sm font-semibold transition-colors border border-gray-600" data-i18n="btn_cgu">CGU</button>
+                </div>
+            </div>
+
+            <button onclick="toggleSettings()" class="mt-6 w-full py-3 bg-gray-600 hover:bg-gray-500 rounded-xl font-bold uppercase tracking-wider transition-colors shadow-lg" data-i18n="btn_close">Fermer</button>
+        </div>
+    </div>
+
+    <!-- MODALES D'ATTENTE & INVITE -->
+    <div id="waiting-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md transition-all duration-300 modal-enter">
+        <div class="bg-gray-800 border border-blue-500 rounded-3xl p-8 w-[90%] max-w-sm shadow-[0_0_30px_rgba(59,130,246,0.3)] flex flex-col items-center text-center">
+            <div class="animate-spin text-5xl mb-4">⏳</div>
+            <h2 id="waiting-title" class="text-2xl font-bold mb-2 text-white">Recherche...</h2>
+            <p class="text-gray-300 mb-6"><span id="waiting-opponent-name" class="text-blue-400 font-bold text-xl drop-shadow">d'un adversaire...</span></p>
+            <button onclick="cancelWaitingAction()" class="w-full py-3 bg-red-600 hover:bg-red-500 rounded-xl font-bold uppercase tracking-wider transition-colors shadow-lg text-white" data-i18n="btn_cancel">Annuler</button>
+        </div>
+    </div>
+
+    <!-- MODALE CONFIRMATION FORFAIT EN LIGNE -->
+    <div id="forfeit-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md transition-all duration-300 modal-enter">
+        <div class="bg-gray-800 border-2 border-red-500 rounded-3xl p-8 w-[90%] max-w-sm shadow-[0_0_40px_rgba(239,68,68,0.3)] flex flex-col items-center text-center">
+            <div class="text-6xl mb-4 animate-pulse">⚠️</div>
+            <h2 class="text-2xl font-bold mb-2 text-white" data-i18n="forfeit_title">Déclarer Forfait ?</h2>
+            <p class="text-gray-300 mb-6" data-i18n="forfeit_desc">Si vous recommencez maintenant, votre adversaire gagnera la partie.</p>
+            <div class="flex gap-3 w-full">
+                <button onclick="declareForfeit()" class="flex-1 py-3 bg-red-600 hover:bg-red-500 rounded-xl font-bold uppercase tracking-wider transition-colors shadow-lg text-white" data-i18n="btn_forfeit">Forfait</button>
+                <button onclick="hideModal('forfeit-modal')" class="flex-1 py-3 bg-gray-600 hover:bg-gray-500 rounded-xl font-bold uppercase tracking-wider transition-colors shadow-lg text-white" data-i18n="btn_cancel">Annuler</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALE ARRET SOLO -->
+    <div id="stop-solo-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md transition-all duration-300 modal-enter">
+        <div class="bg-gray-800 border-2 border-yellow-500 rounded-3xl p-8 w-[90%] max-w-sm shadow-[0_0_40px_rgba(234,179,8,0.3)] flex flex-col items-center text-center">
+            <div class="text-6xl mb-4">🛑</div>
+            <h2 class="text-2xl font-bold mb-2 text-white" data-i18n="stop_solo_title">Arrêter la partie ?</h2>
+            <p class="text-gray-300 mb-6" data-i18n="stop_solo_desc">Voulez-vous vraiment recommencer cette partie ?</p>
+            <div class="flex gap-3 w-full">
+                <button onclick="confirmStopSolo()" class="flex-1 py-3 bg-yellow-600 hover:bg-yellow-500 rounded-xl font-bold uppercase tracking-wider transition-colors shadow-lg text-white" data-i18n="btn_stop">Arrêter</button>
+                <button onclick="hideModal('stop-solo-modal')" class="flex-1 py-3 bg-gray-600 hover:bg-gray-500 rounded-xl font-bold uppercase tracking-wider transition-colors shadow-lg text-white" data-i18n="btn_cancel">Annuler</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="incoming-invite-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md transition-all duration-300 modal-enter">
+        <div class="bg-gray-800 border-2 border-green-500 rounded-3xl p-8 w-[90%] max-w-sm shadow-[0_0_40px_rgba(34,197,94,0.3)] flex flex-col items-center text-center">
+            <div class="text-6xl mb-4 animate-bounce">⚔️</div>
+            <h2 class="text-2xl font-bold mb-2 text-white" data-i18n="incoming_invite_title">Nouveau Défi !</h2>
+            <p class="text-gray-300 mb-6"><span id="inviter-name" class="text-green-400 font-bold text-2xl drop-shadow"></span><br/><span data-i18n="incoming_invite_desc">vous invite à jouer.</span></p>
+            <div class="flex gap-3 w-full">
+                <button onclick="acceptOnlineInvite()" class="flex-1 py-3 bg-green-600 hover:bg-green-500 rounded-xl font-bold uppercase tracking-wider transition-colors shadow-lg text-white" data-i18n="btn_accept">Accepter</button>
+                <button onclick="declineOnlineInvite()" class="flex-1 py-3 bg-gray-600 hover:bg-gray-500 rounded-xl font-bold uppercase tracking-wider transition-colors shadow-lg text-white" data-i18n="btn_decline">Refuser</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="info-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md transition-all duration-300 modal-enter">
+        <div class="bg-gray-800 border border-gray-600 rounded-3xl p-6 w-[90%] max-w-md max-h-[85vh] shadow-2xl flex flex-col">
+            <h2 id="info-title" class="text-2xl font-bold mb-4 text-white border-b border-gray-700 pb-2 flex items-center gap-2"></h2>
+            <div id="info-content" class="text-gray-300 text-sm overflow-y-auto pr-2 space-y-3 flex-1"></div>
+            <button onclick="closeInfoModal()" class="mt-6 w-full py-3 bg-gray-700 hover:bg-gray-600 rounded-xl font-bold uppercase tracking-wider transition-colors shadow-lg text-white" data-i18n="btn_close">Retour</button>
+        </div>
+    </div>
+
+    <div id="victory-modal" class="fixed inset-0 z-40 flex items-center justify-center bg-black/70 backdrop-blur-md transition-all duration-300 modal-enter">
+        <div class="bg-gray-800 border-2 border-yellow-500 rounded-3xl p-8 w-[90%] max-w-sm shadow-[0_0_50px_rgba(234,179,8,0.3)] flex flex-col items-center text-center">
+            <div class="text-6xl mb-4 animate-bounce">🏆</div>
+            <h2 id="victory-text" class="text-3xl font-extrabold mb-6 text-white drop-shadow-md text-center"></h2>
+            <div class="flex gap-3 w-full mt-4">
+                <button onclick="resetGame(); hideModal('victory-modal');" class="flex-1 py-4 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 text-gray-900 rounded-xl font-black uppercase tracking-widest transition-all shadow-lg hover:shadow-xl hover:scale-105" data-i18n="victory_replay">
+                    Rejouer
+                </button>
+                <button onclick="hideModal('victory-modal');" class="flex-1 py-4 bg-gray-600 hover:bg-gray-500 text-white rounded-xl font-black uppercase tracking-widest transition-all shadow-lg hover:shadow-xl" data-i18n="victory_close">
+                    Fermer
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CARTE PRINCIPALE DU JEU -->
+    <div class="max-w-md w-full p-6 sm:p-8 rounded-3xl shadow-2xl flex flex-col items-center theme-transition backdrop-blur-sm border border-white/10 relative" style="background: var(--bg-panel);">
+        
+        <div class="w-full flex justify-between items-center mb-4">
+            <button onclick="toggleSettings()" class="text-gray-300 hover:text-white p-2 rounded-full hover:bg-white/10 transition-all hover:rotate-90">
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+            <h1 class="text-4xl sm:text-5xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-pink-300 drop-shadow-lg tracking-wide">
+                Tapatan
+            </h1>
+            <button onclick="handleRestartClick()" class="text-gray-300 hover:text-white p-2 rounded-full hover:bg-white/10 transition-all hover:-rotate-180" title="Recommencer">
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+            </button>
+        </div>
+
+        <div class="flex items-center gap-4 mb-4">
+            <p id="phase-indicator" class="text-gray-300 text-sm uppercase tracking-wider font-bold bg-black/20 px-4 py-1 rounded-full text-center">
+                Phase 1 : Placement (0/6)
+            </p>
+            
+            <!-- TIMER SVG -->
+            <div class="relative w-10 h-10 flex items-center justify-center">
+                <svg class="w-10 h-10 transform -rotate-90">
+                    <circle cx="20" cy="20" r="16" stroke="currentColor" stroke-width="4" fill="transparent" class="text-gray-700/50" />
+                    <circle id="timer-circle" cx="20" cy="20" r="16" stroke="currentColor" stroke-width="4" fill="transparent" stroke-dasharray="100.5" stroke-dashoffset="0" class="text-blue-500 transition-all duration-100 ease-linear" />
+                </svg>
+                <span id="timer-text" class="absolute text-xs font-bold text-white">15</span>
+            </div>
+        </div>
+
+        <div id="status-display" class="text-lg font-medium mb-6 h-8 flex items-center justify-center text-center transition-all duration-300 w-full"></div>
+
+        <div id="board-container" class="relative w-72 h-72 sm:w-80 sm:h-80 mb-4 mt-2 transition-transform duration-500">
+            <svg class="absolute inset-0 w-full h-full pointer-events-none" style="overflow: visible;" xmlns="http://www.w3.org/2000/svg">
+                <g id="board-lines" class="line-transition" stroke="#4b5563" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="0" y="0" width="100%" height="100%" fill="none" />
+                    <line x1="50%" y1="0" x2="50%" y2="100%" />
+                    <line x1="0" y1="50%" x2="100%" y2="50%" />
+                    <line x1="0" y1="0" x2="100%" y2="100%" />
+                    <line x1="100%" y1="0" x2="0" y2="100%" />
+                </g>
+            </svg>
+
+            <!-- Nœuds -->
+            <div class="node" style="left: 0%; top: 0%; touch-action: none;" data-index="0"></div>
+            <div class="node" style="left: 50%; top: 0%; touch-action: none;" data-index="1"></div>
+            <div class="node" style="left: 100%; top: 0%; touch-action: none;" data-index="2"></div>
+            <div class="node" style="left: 0%; top: 50%; touch-action: none;" data-index="3"></div>
+            <div class="node" style="left: 50%; top: 50%; touch-action: none;" data-index="4"></div>
+            <div class="node" style="left: 100%; top: 50%; touch-action: none;" data-index="5"></div>
+            <div class="node" style="left: 0%; top: 100%; touch-action: none;" data-index="6"></div>
+            <div class="node" style="left: 50%; top: 100%; touch-action: none;" data-index="7"></div>
+            <div class="node" style="left: 100%; top: 100%; touch-action: none;" data-index="8"></div>
+        </div>
+
+    </div>
+
+    <!-- BOUTON CHAT FLOTTANT -->
+    <button id="chat-toggle-btn" onclick="toggleChat()" class="fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-500 text-white p-4 rounded-full shadow-[0_0_20px_rgba(37,99,235,0.5)] hidden z-40 transition-transform hover:scale-110">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span id="chat-unread-badge" class="absolute -top-1 -right-1 bg-red-500 text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full hidden">1</span>
+    </button>
+
+    <!-- FENÊTRE DE CHAT -->
+    <div id="chat-panel" class="fixed bottom-0 right-0 w-full sm:w-80 h-96 bg-gray-800 border-t border-l border-gray-600 rounded-tl-2xl shadow-2xl flex-col z-50 transform translate-y-full transition-transform duration-300 flex">
+        <div class="bg-gray-900 p-3 flex justify-between items-center rounded-tl-2xl cursor-pointer" onclick="toggleChat()">
+            <span class="font-bold text-sm text-white flex items-center gap-2" data-i18n="chat_title">💬 Messagerie Instantanée</span>
+            <button class="text-gray-400 hover:text-white">▼</button>
+        </div>
+        <div id="chat-messages" class="flex-1 p-3 overflow-y-auto flex flex-col gap-3 bg-gray-800/50">
+            <!-- Messages injectés ici -->
+            <div class="text-center text-xs text-gray-500 my-auto" data-i18n="chat_disclaimer">Les messages disparaîtront à la fin de la partie.</div>
+        </div>
+        <div class="p-3 bg-gray-900 flex gap-2">
+            <input type="text" id="chat-input" class="flex-1 bg-gray-700 text-white border border-gray-600 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400" data-i18n-placeholder="chat_placeholder" placeholder="Votre message..." onkeypress="if(event.key==='Enter') sendChatMessage()">
+            <button onclick="sendChatMessage()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-bold">></button>
+        </div>
+    </div>
+
+    <!-- LOGIQUE DU JEU & FIREBASE -->
+    <script>
+        // ======= TRADUCTIONS (i18n) ======= //
+        let currentLang = 'fr';
+        const translations = {
+            fr: {
+                settings_title: "Paramètres & Profil", profile_label: "Profil (Ton Pseudo)", unique_id_help: "Ton ID complet (Pseudo + Tag) est unique.",
+                stat_played: "Parties", stat_wins: "Victoires", stat_losses: "Défaites",
+                mode_label: "Mode de jeu", mode_solo: "👤 vs 🤖 IA Locale", mode_friend: "🌐 Défier un ami (Temps Réel)", mode_random: "🌍 Matchmaking (Aléatoire)",
+                ai_label: "Niveau de l'IA", ai_easy: "Facile", ai_normal: "Normal", ai_hard: "Difficile", ai_monster: "Monstre 👹",
+                challenge_label: "Défier un joueur", challenge_placeholder: "Ex: Alex#1234", btn_challenge: "Défier",
+                matchmake_desc: "Trouvez un adversaire disponible n'importe où dans le monde.", btn_matchmake: "🔍 Chercher une partie",
+                theme_label: "Thème visuel", theme_classic: "Classique", theme_beach: "🌊 Littoral", theme_forest: "🌲 Forêt", theme_savanna: "🦁 Savane", theme_desert: "🐪 Désert", theme_mountain: "⛰️ Montagne",
+                sound_label: "<span>🎵</span> Effets Sonores (SFX)", lang_label: "🌐 Langue / Language",
+                btn_help: "Aide", btn_rules: "Règles", btn_cgu: "CGU", btn_close: "Fermer",
+                waiting_invite_title: "Invitation envoyée", waiting_invite_desc: "En attente de la réponse de", btn_cancel: "Annuler", btn_stop: "Arrêter",
+                incoming_invite_title: "Nouveau Défi !", incoming_invite_desc: "vous invite à jouer.", btn_accept: "Accepter", btn_decline: "Refuser",
+                victory_replay: "Rejouer", victory_close: "Fermer",
+                chat_title: "💬 Messagerie Instantanée", chat_disclaimer: "Les messages disparaîtront à la fin de la partie.", chat_placeholder: "Votre message...",
+                forfeit_title: "Déclarer Forfait ?", forfeit_desc: "Si vous recommencez maintenant, votre adversaire gagnera la partie.", btn_forfeit: "Forfait",
+                stop_solo_title: "Arrêter la partie ?", stop_solo_desc: "Voulez-vous vraiment recommencer cette partie ?",
+                phase_1: "Phase 1 : Placement ({0}/6)", phase_2: "Phase 2 : Déplacement",
+                status_place: "{0}, placez un pion.", status_dest: "{0}, choisissez la destination.", status_drag: "{0}, glissez ou sélectionnez un pion.", status_drag_online: "{0}, glissez un pion.",
+                status_turn: "(À toi)", status_wait: "(Patiente...)", status_anticheat: "Anti-jeu ! {0} joue 2 fois.", status_ai: "L'IA réfléchit... 🤖",
+                alert_accepted: "Défi accepté par {0} !", alert_declined: "{0} a refusé.", alert_found: "Adversaire trouvé !", alert_joined: "Un adversaire a rejoint !",
+                game_over: "Fin de la partie", win_normal: "a gagné !", win_forfeit: "a gagné par forfait !", player_ai: "L'IA", player_opponent: "Adversaire",
+                waiting_matchmaking_title: "Recherche de partie", waiting_matchmaking_desc: "Un adversaire dans le monde...", network_disconnected: "Déconnecté", network_connected: "Connecté"
+            },
+            en: {
+                settings_title: "Settings & Profile", profile_label: "Profile (Your Username)", unique_id_help: "Your full ID (Username + Tag) is unique.",
+                stat_played: "Played", stat_wins: "Wins", stat_losses: "Losses",
+                mode_label: "Game Mode", mode_solo: "👤 vs 🤖 Local AI", mode_friend: "🌐 Challenge a friend (Real-Time)", mode_random: "🌍 Matchmaking (Random)",
+                ai_label: "AI Level", ai_easy: "Easy", ai_normal: "Normal", ai_hard: "Hard", ai_monster: "Monster 👹",
+                challenge_label: "Challenge a player", challenge_placeholder: "e.g. Alex#1234", btn_challenge: "Challenge",
+                matchmake_desc: "Find an available opponent anywhere in the world.", btn_matchmake: "🔍 Find a match",
+                theme_label: "Visual Theme", theme_classic: "Classic", theme_beach: "🌊 Beach", theme_forest: "🌲 Forest", theme_savanna: "🦁 Savanna", theme_desert: "🐪 Desert", theme_mountain: "⛰️ Mountain",
+                sound_label: "<span>🎵</span> Sound Effects (SFX)", lang_label: "🌐 Langue / Language",
+                btn_help: "Help", btn_rules: "Rules", btn_cgu: "Terms", btn_close: "Close",
+                waiting_invite_title: "Invite sent", waiting_invite_desc: "Waiting for response from", btn_cancel: "Cancel", btn_stop: "Stop",
+                incoming_invite_title: "New Challenge!", incoming_invite_desc: "invites you to play.", btn_accept: "Accept", btn_decline: "Decline",
+                victory_replay: "Play Again", victory_close: "Close",
+                chat_title: "💬 Instant Messaging", chat_disclaimer: "Messages will disappear at the end of the game.", chat_placeholder: "Your message...",
+                forfeit_title: "Forfeit Game?", forfeit_desc: "If you restart now, your opponent will win the game.", btn_forfeit: "Forfeit",
+                stop_solo_title: "Stop the game?", stop_solo_desc: "Do you really want to restart this game?",
+                phase_1: "Phase 1: Placement ({0}/6)", phase_2: "Phase 2: Movement",
+                status_place: "{0}, place a piece.", status_dest: "{0}, choose the destination.", status_drag: "{0}, drag or select a piece.", status_drag_online: "{0}, drag a piece.",
+                status_turn: "(Your turn)", status_wait: "(Waiting...)", status_anticheat: "Anti-cheat! {0} plays twice.", status_ai: "AI is thinking... 🤖",
+                alert_accepted: "Challenge accepted by {0}!", alert_declined: "{0} declined.", alert_found: "Opponent found!", alert_joined: "An opponent joined!",
+                game_over: "Game Over", win_normal: "won!", win_forfeit: "won by forfeit!", player_ai: "The AI", player_opponent: "Opponent",
+                waiting_matchmaking_title: "Searching for match", waiting_matchmaking_desc: "An opponent in the world...", network_disconnected: "Disconnected", network_connected: "Connected"
+            }
+        };
+
+        const themeSettings = { 
+            defaut: { pion1: '<div class="pion-circle"></div>', nom1_fr: 'Cercle', nom2_fr: 'Carré', nom1_en: 'Circle', nom2_en: 'Square', pion2: '<div class="pion-square"></div>', strokeColor: '#4b5563', strokeWidth: '4', filter: 'none' }, 
+            littoral: { pion1: '<div class="text-4xl">🐚</div>', nom1_fr: 'Coquillage', nom2_fr: 'Crabe', nom1_en: 'Shell', nom2_en: 'Crab', pion2: '<div class="text-4xl">🦀</div>', strokeColor: '#ca8a04', strokeWidth: '8', filter: 'url(#sand-draw)' }, 
+            foret: { pion1: '<div class="text-4xl">🍃</div>', nom1_fr: 'Feuille', nom2_fr: 'Champignon', nom1_en: 'Leaf', nom2_en: 'Mushroom', pion2: '<div class="text-4xl">🍄</div>', strokeColor: '#3f2a14', strokeWidth: '6', filter: 'url(#wood)' }, 
+            savane: { pion1: '<div class="text-4xl">🦁</div>', nom1_fr: 'Lion', nom2_fr: 'Zèbre', nom1_en: 'Lion', nom2_en: 'Zebra', pion2: '<div class="text-4xl">🦓</div>', strokeColor: '#78350f', strokeWidth: '5', filter: 'url(#wood)' }, 
+            desert: { pion1: '<div class="text-4xl">🌵</div>', nom1_fr: 'Cactus', nom2_fr: 'Scorpion', nom1_en: 'Cactus', nom2_en: 'Scorpion', pion2: '<div class="text-4xl">🦂</div>', strokeColor: '#7c2d12', strokeWidth: '6', filter: 'url(#sand-draw)' }, 
+            montagne: { pion1: '<div class="text-4xl">❄️</div>', nom1_fr: 'Flocon', nom2_fr: 'Rocher', nom1_en: 'Snowflake', nom2_en: 'Rock', pion2: '<div class="text-4xl">🪨</div>', strokeColor: '#cbd5e1', strokeWidth: '4', filter: 'url(#rock)' } 
+        };
+
+        function t(key) { return translations[currentLang][key] || key; }
+
+        let infoTexts = {};
+        function applyLanguage() {
+            document.querySelectorAll('[data-i18n]').forEach(el => { el.innerHTML = t(el.getAttribute('data-i18n')); });
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(el => { el.placeholder = t(el.getAttribute('data-i18n-placeholder')); });
+            
+            infoTexts = { 
+                aide: { title: currentLang==='fr' ? "❓ Aide au jeu" : "❓ Help", content: currentLang==='fr' ? "<p>Le jeu se déroule en deux phases :</p><ul class='list-disc pl-5 mt-2'><li><strong>Phase 1 :</strong> Cliquez sur une case vide pour y placer un pion.</li><li><strong>Phase 2 :</strong> <b>Glissez</b> votre pion vers une case adjacente, ou cliquez dessus puis cliquez sur la destination.</li></ul>" : "<p>The game has two phases:</p><ul class='list-disc pl-5 mt-2'><li><strong>Phase 1:</strong> Click an empty spot to place a piece.</li><li><strong>Phase 2:</strong> <b>Drag</b> your piece to an adjacent spot, or click it then click the destination.</li></ul>" }, 
+                regles: { title: currentLang==='fr' ? "📜 Règles & Pénalités" : "📜 Rules & Penalties", content: currentLang==='fr' ? "<p><strong>⚠️ Règle Anti-Jeu :</strong> Il est interdit de faire <strong>4 allers-retours consécutifs</strong>. Si un joueur bloque le jeu de cette manière, son adversaire gagne le droit de jouer 2 fois de suite !</p><br/><p><strong>⏱️ Chronomètre :</strong> Vous avez 15s par tour. Si le temps s'écoule, un coup est joué au hasard.</p>" : "<p><strong>⚠️ Anti-Cheat:</strong> You cannot make <strong>4 consecutive back-and-forth moves</strong>. If a player stalls this way, their opponent gets to play 2 times in a row!</p><br/><p><strong>⏱️ Timer:</strong> You have 15s per turn. If time runs out, a random move is made.</p>" }, 
+                cgu: { title: currentLang==='fr' ? "⚖️ Conditions d'utilisation" : "⚖️ Terms", content: currentLang==='fr' ? "<p>Ce jeu est gratuit. En mode en ligne, les parties transitent via Firebase. Le chat est éphémère et effacé à chaque nouvelle partie.</p>" : "<p>This game is free. Online matches transit via Firebase. Chat is ephemeral and erased each game.</p>" } 
+            };
+            updateUI();
+        }
+
+        function changeLanguage() {
+            currentLang = document.getElementById('lang-select').value;
+            saveSettings();
+            applyLanguage();
+        }
+
+        // ======= DOM ELEMENTS ======= //
+        const nodes = document.querySelectorAll('.node');
+        const statusElement = document.getElementById('status-display');
+        const phaseIndicator = document.getElementById('phase-indicator');
+        const modeSelect = document.getElementById('game-mode');
+        const themeSelect = document.getElementById('game-theme');
+        const aiLevelSelect = document.getElementById('ai-level');
+        const aiLevelContainer = document.getElementById('ai-level-container');
+        const opponentIdContainer = document.getElementById('opponent-id-container');
+        const opponentIdInput = document.getElementById('opponent-id-input');
+        const matchmakingContainer = document.getElementById('matchmaking-container');
+        const soundToggle = document.getElementById('sound-toggle');
+        const dragGhost = document.getElementById('drag-ghost');
+        const playerNameInput = document.getElementById('player-name-input');
+        const playerTagDisplay = document.getElementById('player-tag-display');
+        const timerText = document.getElementById('timer-text');
+        const timerCircle = document.getElementById('timer-circle');
+        
+        let playerStats = { baseName: 'Joueur', tag: '', id: '', opponentId: '', played: 0, wins: 0, losses: 0, knownOpponents: [] };
+
+        // ======= MOTEUR MULTIJOUEUR EN LIGNE (FIREBASE) ======= //
+        let fbApp, fbAuth, fbDb, signInAnonymously, signInWithCustomToken, onAuthStateChanged;
+        let doc, setDoc, getDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, getDocs, limit, arrayUnion;
+        let isOnlineReady = false;
+        let unsubscribeInvite = null;
+        let unsubscribeMatch = null;
+        let unsubscribeMatchmaking = null;
+        let currentMatchId = null;
+        let isHost = false; 
+        let fbUser = null;
+        let currentPendingInvite = null;
+        let waitingMode = null; 
+
+        const FIREBASE_APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'tapatan-game-public';
+
+        import('https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js').then(appModule => {
+            import('https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js').then(authModule => {
+                import('https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js').then(async fsModule => {
+                    
+                    let config = {};
+                    if (typeof __firebase_config !== 'undefined') { config = JSON.parse(__firebase_config); } 
+                    else { console.warn("Mode local, réseau simulé. Configurez Firebase pour le vrai mode en ligne."); return; }
+
+                    fbApp = appModule.initializeApp(config); fbAuth = authModule.getAuth(fbApp); fbDb = fsModule.getFirestore(fbApp);
+                    signInAnonymously = authModule.signInAnonymously; signInWithCustomToken = authModule.signInWithCustomToken; onAuthStateChanged = authModule.onAuthStateChanged;
+                    doc = fsModule.doc; setDoc = fsModule.setDoc; getDoc = fsModule.getDoc; updateDoc = fsModule.updateDoc; deleteDoc = fsModule.deleteDoc;
+                    onSnapshot = fsModule.onSnapshot; collection = fsModule.collection; query = fsModule.query; where = fsModule.where; getDocs = fsModule.getDocs; limit = fsModule.limit;
+                    arrayUnion = fsModule.arrayUnion;
+
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await signInWithCustomToken(fbAuth, __initial_auth_token);
+                    else await signInAnonymously(fbAuth);
+
+                    onAuthStateChanged(fbAuth, (user) => {
+                        if (user) {
+                            fbUser = user; isOnlineReady = true;
+                            document.getElementById('network-status').innerText = "🟢 " + t('network_connected');
+                            document.getElementById('network-status').classList.replace('text-yellow-500', 'text-green-400');
+                            document.getElementById('network-status').classList.remove('animate-pulse');
+                            document.getElementById('btn-defier').disabled = false; document.getElementById('btn-defier').classList.remove('opacity-50', 'cursor-not-allowed');
+                            document.getElementById('btn-matchmake').disabled = false; document.getElementById('btn-matchmake').classList.remove('opacity-50', 'cursor-not-allowed');
+                            listenToMyInvites();
+                        }
+                    });
+                });
+            });
+        });
+
+        function getSafeId(id) { return id.replace(/#/g, '_'); }
+
+        function listenToMyInvites() {
+            if (!fbUser || !playerStats.id) return;
+            if (unsubscribeInvite) unsubscribeInvite();
+            const inviteRef = doc(fbDb, 'artifacts', FIREBASE_APP_ID, 'public', 'data', 'invites', getSafeId(playerStats.id));
+            
+            unsubscribeInvite = onSnapshot(inviteRef, (snapshot) => {
+                if (snapshot.exists()) {
+                    const data = snapshot.data();
+                    if (data.status === 'pending' && data.to === playerStats.id && data.timestamp > Date.now() - 60000) {
+                        currentPendingInvite = data; document.getElementById('inviter-name').innerText = data.from; showModal('incoming-invite-modal');
+                    }
+                    else if (data.status === 'accepted' && data.from === playerStats.id) {
+                        hideModal('waiting-modal'); playerStats.opponentId = data.to; currentMatchId = data.matchId; isHost = true;
+                        joinFirebaseMatch(currentMatchId); showTemporaryAlert(t('alert_accepted').replace('{0}', data.to), 'bg-green-600'); deleteDoc(inviteRef); 
+                    }
+                    else if (data.status === 'declined' && data.from === playerStats.id) {
+                        hideModal('waiting-modal'); showTemporaryAlert(t('alert_declined').replace('{0}', data.to), 'bg-red-600'); deleteDoc(inviteRef);
+                    }
+                }
+            }, (err) => console.error(err));
+        }
+
+        async function sendOnlineInvite() {
+            if (!isOnlineReady) return; const oppId = opponentIdInput.value.trim();
+            if (!oppId || oppId === playerStats.id || !oppId.includes('#')) { alert("ID Error"); return; }
+            if (!playerStats.knownOpponents.includes(oppId)) { playerStats.knownOpponents.push(oppId); saveSettings(); updateKnownOpponentsUI(); }
+            
+            const matchId = `match_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+            const targetRef = doc(fbDb, 'artifacts', FIREBASE_APP_ID, 'public', 'data', 'invites', getSafeId(oppId));
+            
+            waitingMode = 'invite'; document.getElementById('waiting-title').innerText = t('waiting_invite_title'); document.getElementById('waiting-opponent-name').innerText = oppId;
+            hideModal('settings-modal'); showModal('waiting-modal');
+            await setDoc(targetRef, { from: playerStats.id, to: oppId, status: 'pending', matchId: matchId, timestamp: Date.now() });
+            
+            if (unsubscribeInvite) unsubscribeInvite();
+            unsubscribeInvite = onSnapshot(targetRef, (snapshot) => {
+                if (snapshot.exists()) {
+                    const data = snapshot.data();
+                    if (data.status === 'accepted') {
+                        hideModal('waiting-modal'); playerStats.opponentId = oppId; currentMatchId = data.matchId; isHost = true;
+                        modeSelect.value = 'online_friend'; handleModeChange(); joinFirebaseMatch(currentMatchId);
+                        showTemporaryAlert(t('alert_accepted').replace('{0}', oppId), 'bg-green-600'); listenToMyInvites();
+                    } else if (data.status === 'declined') {
+                        hideModal('waiting-modal'); showTemporaryAlert(t('alert_declined').replace('{0}', oppId), 'bg-red-600'); listenToMyInvites();
+                    }
+                }
+            }, (err) => console.error(err));
+        }
+
+        async function acceptOnlineInvite() {
+            if (!currentPendingInvite) return;
+            const inviteRef = doc(fbDb, 'artifacts', FIREBASE_APP_ID, 'public', 'data', 'invites', getSafeId(playerStats.id));
+            await setDoc(inviteRef, { ...currentPendingInvite, status: 'accepted' });
+            playerStats.opponentId = currentPendingInvite.from; currentMatchId = currentPendingInvite.matchId; isHost = false;
+            modeSelect.value = 'online_friend'; handleModeChange(); hideModal('incoming-invite-modal'); joinFirebaseMatch(currentMatchId);
+            if (!playerStats.knownOpponents.includes(currentPendingInvite.from)) { playerStats.knownOpponents.push(currentPendingInvite.from); saveSettings(); updateKnownOpponentsUI();}
+        }
+
+        async function declineOnlineInvite() {
+            if (!currentPendingInvite) return;
+            const inviteRef = doc(fbDb, 'artifacts', FIREBASE_APP_ID, 'public', 'data', 'invites', getSafeId(playerStats.id));
+            await setDoc(inviteRef, { ...currentPendingInvite, status: 'declined' }); hideModal('incoming-invite-modal');
+        }
+
+        async function startMatchmaking() {
+            if (!isOnlineReady) return;
+            waitingMode = 'matchmaking'; document.getElementById('waiting-title').innerText = t('waiting_matchmaking_title'); document.getElementById('waiting-opponent-name').innerText = t('waiting_matchmaking_desc');
+            hideModal('settings-modal'); showModal('waiting-modal');
+
+            const queueCol = collection(fbDb, 'artifacts', FIREBASE_APP_ID, 'public', 'data', 'matchmaking');
+            const querySnapshot = await getDocs(query(queueCol, limit(1)));
+            
+            if (!querySnapshot.empty) {
+                const opponentDoc = querySnapshot.docs[0]; const opponentData = opponentDoc.data();
+                await deleteDoc(doc(fbDb, 'artifacts', FIREBASE_APP_ID, 'public', 'data', 'matchmaking', opponentDoc.id));
+                currentMatchId = opponentData.matchId; playerStats.opponentId = opponentData.playerId; isHost = false; 
+                const matchRef = doc(fbDb, 'artifacts', FIREBASE_APP_ID, 'public', 'data', 'matches', currentMatchId);
+                await setDoc(matchRef, { status: 'starting', j1: opponentData.playerId, j2: playerStats.id }, { merge: true });
+                hideModal('waiting-modal'); showTemporaryAlert(t('alert_found'), 'bg-green-600'); joinFirebaseMatch(currentMatchId);
+            } else {
+                currentMatchId = `match_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+                const myQueueRef = doc(fbDb, 'artifacts', FIREBASE_APP_ID, 'public', 'data', 'matchmaking', getSafeId(playerStats.id));
+                await setDoc(myQueueRef, { playerId: playerStats.id, matchId: currentMatchId, timestamp: Date.now() });
+                isHost = true; 
+                
+                const matchRef = doc(fbDb, 'artifacts', FIREBASE_APP_ID, 'public', 'data', 'matches', currentMatchId);
+                if (unsubscribeMatchmaking) unsubscribeMatchmaking();
+                unsubscribeMatchmaking = onSnapshot(matchRef, (snapshot) => {
+                    if (snapshot.exists()) {
+                        const matchData = snapshot.data();
+                        if (matchData.status === 'starting' && matchData.j2) {
+                            if (unsubscribeMatchmaking) unsubscribeMatchmaking();
+                            playerStats.opponentId = matchData.j2; hideModal('waiting-modal'); showTemporaryAlert(t('alert_joined'), 'bg-green-600'); joinFirebaseMatch(currentMatchId);
+                        }
+                    }
+                });
+            }
+        }
+
+        async function cancelWaitingAction() {
+            if (waitingMode === 'invite') { deleteDoc(doc(fbDb, 'artifacts', FIREBASE_APP_ID, 'public', 'data', 'invites', getSafeId(document.getElementById('waiting-opponent-name').innerText))); listenToMyInvites(); } 
+            else if (waitingMode === 'matchmaking') { if (unsubscribeMatchmaking) unsubscribeMatchmaking(); deleteDoc(doc(fbDb, 'artifacts', FIREBASE_APP_ID, 'public', 'data', 'matchmaking', getSafeId(playerStats.id))); }
+            hideModal('waiting-modal'); showModal('settings-modal'); waitingMode = null;
+        }
+
+        async function joinFirebaseMatch(matchId) {
+            if (!fbUser) return;
+            if (unsubscribeMatch) unsubscribeMatch();
+            resetGameLocal(); 
+            const matchRef = doc(fbDb, 'artifacts', FIREBASE_APP_ID, 'public', 'data', 'matches', matchId);
+            
+            document.getElementById('chat-toggle-btn').classList.remove('hidden'); 
+
+            if (isHost) { 
+                const initExpires = Date.now() + turnDuration * 1000;
+                await setDoc(matchRef, { boardState, currentPlayer, phase, piecesPlaced, lastMoveIndex, extraTurns, turnExpiresAt: initExpires }, {merge: true}); 
+            }
+
+            unsubscribeMatch = onSnapshot(matchRef, (snapshot) => {
+                if (snapshot.exists()) {
+                    const state = snapshot.data();
+                    
+                    if (state.chat && state.chat.length > localChatCount) {
+                        renderChat(state.chat);
+                    }
+
+                    boardState = state.boardState || ['', '', '', '', '', '', '', '', ''];
+                    currentPlayer = state.currentPlayer || 'J1'; phase = state.phase || 'placement';
+                    piecesPlaced = state.piecesPlaced || 0; lastMoveIndex = state.lastMoveIndex !== undefined ? state.lastMoveIndex : null;
+                    extraTurns = state.extraTurns || 0;
+                    
+                    if (state.turnExpiresAt) startTurnTimer(state.turnExpiresAt);
+
+                    updateBoardVisuals(); updateUI();
+                    
+                    // Réception d'une victoire (ou d'un forfait adverse)
+                    if (state.winner && gameActive) { 
+                        gameActive = false; 
+                        clearInterval(timerInterval);
+                        
+                        if (state.winner === playerStats.id) playerStats.wins++;
+                        else playerStats.losses++;
+                        saveSettings(); updateStatsDisplay();
+                        
+                        showVictoryEnd(state.winner, state.isForfeit); 
+                    }
+                }
+            }, (err) => console.error(err));
+        }
+
+        async function pushMatchStateToFirebase(winnerName = null, isForfeit = false) {
+            if (!isOnlineReady || currentMode === 'solo' || !currentMatchId) return;
+            const matchRef = doc(fbDb, 'artifacts', FIREBASE_APP_ID, 'public', 'data', 'matches', currentMatchId);
+            const expires = Date.now() + turnDuration * 1000;
+            const dataToPush = { boardState, currentPlayer, phase, piecesPlaced, lastMoveIndex, extraTurns, turnExpiresAt: expires };
+            if (winnerName) {
+                dataToPush.winner = winnerName;
+                if (isForfeit) dataToPush.isForfeit = true;
+            }
+            await setDoc(matchRef, dataToPush, { merge: true });
+        }
+
+
+        // ======= TIMER & AUTO-PLAY ======= //
+        let timerInterval = null;
+        const turnDuration = 15; 
+        let currentExpiresAt = 0;
+        let isDragging = false; 
+
+        function startTurnTimer(expiresAt) {
+            clearInterval(timerInterval);
+            
+            // Ne pas démarrer le timer si on est en solo et que le 1er coup n'est pas joué
+            let isTimerPaused = (currentMode === 'solo' && piecesPlaced === 0) || (currentMode !== 'solo' && (!currentMatchId || !playerStats.opponentId));
+            if (isTimerPaused) {
+                timerText.innerText = turnDuration; timerCircle.style.strokeDashoffset = 0; timerCircle.classList.replace('text-red-500', 'text-blue-500');
+                return; 
+            }
+            
+            currentExpiresAt = expiresAt || (Date.now() + turnDuration * 1000);
+            
+            if (currentMode === 'solo' && currentPlayer === 'J2') {
+                timerText.innerText = '∞'; timerCircle.style.strokeDashoffset = 0; timerCircle.classList.replace('text-red-500', 'text-blue-500');
+                return; 
+            }
+
+            timerInterval = setInterval(() => {
+                if (!gameActive) { clearInterval(timerInterval); return; }
+                const now = Date.now();
+                const remaining = Math.max(0, currentExpiresAt - now);
+                const seconds = Math.ceil(remaining / 1000);
+                
+                timerText.innerText = seconds;
+                const dashoffset = 100.5 - (remaining / (turnDuration * 1000)) * 100.5;
+                timerCircle.style.strokeDashoffset = dashoffset;
+                
+                if (seconds <= 5) timerCircle.classList.replace('text-blue-500', 'text-red-500');
+                else timerCircle.classList.replace('text-red-500', 'text-blue-500');
+
+                if (remaining <= 0) {
+                    clearInterval(timerInterval);
+                    if (isMyOnlineTurn() || currentMode === 'solo') forceRandomMove();
+                }
+            }, 100);
+        }
+
+        function forceRandomMove() {
+            if (!gameActive) return;
+            SFX.error();
+            
+            if(isDragging) { isDragging = false; dragGhost.style.display = 'none'; let sel = document.querySelector('.node.selected'); if(sel) sel.style.opacity = '1'; }
+            
+            if (phase === 'placement') {
+                let empty = []; boardState.forEach((val, i) => { if (val === '') empty.push(i); });
+                if (empty.length > 0) executePlacement(empty[Math.floor(Math.random() * empty.length)]);
+            } else {
+                let possibleMoves = [];
+                boardState.forEach((val, fromIndex) => {
+                    if (val === currentPlayer) adjacency[fromIndex].forEach(toIndex => { if (boardState[toIndex] === '') possibleMoves.push({ from: fromIndex, to: toIndex }); });
+                });
+                if (possibleMoves.length > 0) {
+                    let move = possibleMoves[Math.floor(Math.random() * possibleMoves.length)];
+                    executeMovement(move.from, move.to);
+                } else switchPlayer(false);
+            }
+        }
+
+        // ======= CHAT SYSTEM ======= //
+        let isChatOpen = false;
+        let localChatCount = 0;
+        const chatPanel = document.getElementById('chat-panel');
+        const chatBadge = document.getElementById('chat-unread-badge');
+
+        function toggleChat() {
+            isChatOpen = !isChatOpen;
+            if (isChatOpen) {
+                chatPanel.classList.remove('translate-y-full');
+                chatBadge.classList.add('hidden'); chatBadge.innerText = '0';
+                document.getElementById('chat-input').focus();
+            } else {
+                chatPanel.classList.add('translate-y-full');
+            }
+        }
+
+        async function sendChatMessage() {
+            const input = document.getElementById('chat-input'); const msg = input.value.trim();
+            if (!msg || !currentMatchId || currentMode === 'solo') return;
+            input.value = '';
+            
+            const matchRef = doc(fbDb, 'artifacts', FIREBASE_APP_ID, 'public', 'data', 'matches', currentMatchId);
+            await updateDoc(matchRef, { chat: arrayUnion({ sender: playerStats.baseName, text: msg, time: Date.now() }) });
+        }
+
+        function renderChat(chatArray) {
+            const chatMessagesDiv = document.getElementById('chat-messages');
+            
+            for (let i = localChatCount; i < chatArray.length; i++) {
+                const msg = chatArray[i];
+                const isMe = msg.sender === playerStats.baseName;
+                
+                const msgDiv = document.createElement('div');
+                msgDiv.className = `max-w-[80%] rounded-xl px-3 py-2 text-sm ${isMe ? 'bg-blue-600 self-end rounded-br-sm' : 'bg-gray-700 self-start rounded-bl-sm'}`;
+                msgDiv.innerHTML = `<div class="font-bold text-[10px] text-gray-300 mb-0.5">${msg.sender}</div><div>${msg.text}</div>`;
+                
+                chatMessagesDiv.appendChild(msgDiv);
+                
+                if (!isChatOpen && !isMe) {
+                    SFX.plop(); 
+                    let unread = parseInt(chatBadge.innerText || '0');
+                    chatBadge.innerText = unread + 1;
+                    chatBadge.classList.remove('hidden');
+                }
+            }
+            localChatCount = chatArray.length;
+            chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight; 
+        }
+
+
+        // ======= AUDIO ======= //
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx; let soundEnabled = true;
+        function initAudio() { if (!audioCtx && soundEnabled) audioCtx = new AudioContext(); if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); }
+        document.body.addEventListener('pointerdown', initAudio, { once: true });
+        function playTone(freq, type, duration, vol) { if (!soundEnabled || !audioCtx) return; const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain(); osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime); gain.gain.setValueAtTime(vol, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration); osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + duration); }
+        const SFX = { plop: () => { playTone(400, 'sine', 0.1, 0.5); setTimeout(()=>playTone(600, 'sine', 0.15, 0.4), 50); }, slide: () => { playTone(200, 'triangle', 0.15, 0.3); setTimeout(()=>playTone(250, 'triangle', 0.15, 0.2), 80); }, error: () => { playTone(150, 'sawtooth', 0.3, 0.4); }, win: () => { playTone(400, 'square', 0.2, 0.2); setTimeout(()=>playTone(500, 'square', 0.2, 0.2), 200); setTimeout(()=>playTone(600, 'square', 0.4, 0.2), 400); } };
+
+        // ======= ETAT LOCAL ======= //
+        let boardState = ['', '', '', '', '', '', '', '', ''];
+        let currentPlayer = 'J1'; let gameActive = true; let currentMode = 'solo'; let isAILoading = false; 
+        let phase = 'placement'; let piecesPlaced = 0; let selectedPieceIndex = null; let lastMoveIndex = null;
+        let moveHistory = { 'J1': [], 'J2': [] }; let extraTurns = 0; 
+        const adjacency = { 0: [1,3,4], 1: [0,2,4], 2: [1,5,4], 3: [0,6,4], 4: [0,1,2,3,5,6,7,8], 5: [2,8,4], 6: [3,7,4], 7: [6,8,4], 8: [5,7,4] };
+        const winningConditions = [ [0,1,2], [3,4,5], [6,7,8], [0,3,6], [1,4,7], [2,5,8], [0,4,8], [2,4,6] ];
+
+        function isMyOnlineTurn() {
+            if (currentMode === 'solo') return true;
+            return (isHost && currentPlayer === 'J1') || (!isHost && currentPlayer === 'J2');
+        }
+
+        // DRAG & DROP
+        let dragStartIndex = null; let justDropped = false; 
+        nodes.forEach(node => {
+            node.addEventListener('pointerdown', (e) => {
+                const index = parseInt(node.getAttribute('data-index'));
+                if (!gameActive || isAILoading || justDropped) return;
+                if (currentMode === 'solo' && currentPlayer === 'J2') return;
+                if (currentMode !== 'solo' && !isMyOnlineTurn()) { SFX.error(); return; }
+
+                if (phase === 'placement') {
+                    if (boardState[index] === '') executePlacement(index);
+                } 
+                else if (phase === 'movement') {
+                    if (boardState[index] === currentPlayer) {
+                        isDragging = true; dragStartIndex = index; selectPiece(index);
+                        dragGhost.innerHTML = node.innerHTML; dragGhost.style.display = 'block'; dragGhost.style.left = e.clientX + 'px'; dragGhost.style.top = e.clientY + 'px';
+                        dragGhost.style.transform = 'translate(-50%, -50%) scale(1.3)'; dragGhost.style.filter = 'drop-shadow(0 15px 15px rgba(0,0,0,0.5))'; dragGhost.style.transition = 'none';
+                        node.style.opacity = '0.3'; node.setPointerCapture(e.pointerId);
+                    } 
+                    else if (boardState[index] === '' && selectedPieceIndex !== null && adjacency[selectedPieceIndex].includes(index)) {
+                        executeMovement(selectedPieceIndex, index);
+                    }
+                }
+            });
+            node.addEventListener('pointermove', (e) => { if (!isDragging) return; dragGhost.style.left = e.clientX + 'px'; dragGhost.style.top = e.clientY + 'px'; });
+            node.addEventListener('pointerup', (e) => {
+                if (!isDragging) return;
+                isDragging = false; node.releasePointerCapture(e.pointerId); dragGhost.style.display = 'none'; node.style.opacity = '1';
+                let dropTarget = document.elementFromPoint(e.clientX, e.clientY); let dropNode = dropTarget ? dropTarget.closest('.node') : null;
+                if (dropNode) {
+                    let toIndex = parseInt(dropNode.getAttribute('data-index'));
+                    if (boardState[toIndex] === '' && adjacency[dragStartIndex].includes(toIndex)) {
+                        justDropped = true; executeMovement(dragStartIndex, toIndex); 
+                        const targetNode = document.querySelector(`[data-index="${toIndex}"]`);
+                        targetNode.classList.add('drop-bounce');
+                        setTimeout(() => targetNode.classList.remove('drop-bounce'), 300);
+                        setTimeout(() => justDropped = false, 100);
+                    } else if (toIndex !== dragStartIndex) SFX.error(); 
+                }
+            });
+            node.addEventListener('pointercancel', () => { if(isDragging) { isDragging = false; dragGhost.style.display = 'none'; node.style.opacity = '1'; } });
+        });
+
+        function executePlacement(index) {
+            boardState[index] = currentPlayer; piecesPlaced++; lastMoveIndex = index; SFX.plop(); updateBoardVisuals(true);
+            
+            // Lancement du timer en solo au premier coup
+            if (currentMode === 'solo' && piecesPlaced === 1) startTurnTimer();
+
+            if (checkWin()) return;
+            if (piecesPlaced === 6) phase = 'movement';
+            switchPlayer(false);
+            if (currentMode !== 'solo') pushMatchStateToFirebase();
+        }
+
+        function selectPiece(index) { selectedPieceIndex = index; updateBoardVisuals(); SFX.plop(); }
+
+        function executeMovement(fromIndex, toIndex) {
+            const fromNode = document.querySelector(`[data-index="${fromIndex}"]`); const toNode = document.querySelector(`[data-index="${toIndex}"]`); const rectFrom = fromNode.getBoundingClientRect();
+            boardState[toIndex] = currentPlayer; boardState[fromIndex] = ''; lastMoveIndex = toIndex;
+            
+            let loopDetected = false; moveHistory[currentPlayer].push({ f: fromIndex, t: toIndex });
+            if (currentMode !== 'solo' || (currentMode === 'solo' && aiLevelSelect.value !== 'facile')) {
+                let hist = moveHistory[currentPlayer];
+                if (hist.length >= 4) {
+                    let m4 = hist[hist.length-1], m3 = hist[hist.length-2], m2 = hist[hist.length-3], m1 = hist[hist.length-4];
+                    if (m4.f === m3.t && m4.t === m3.f && m3.f === m2.t && m3.t === m2.f && m2.f === m1.t && m2.t === m1.f) {
+                        loopDetected = true; moveHistory[currentPlayer] = []; SFX.error();
+                    }
+                }
+            }
+
+            selectedPieceIndex = null; updateBoardVisuals(); 
+            const newPiece = toNode.firstElementChild;
+            if (newPiece) {
+                const rectTo = toNode.getBoundingClientRect(); newPiece.style.transform = `translate(${rectFrom.left - rectTo.left}px, ${rectFrom.top - rectTo.top}px)`; newPiece.style.transition = 'none'; 
+                requestAnimationFrame(() => { requestAnimationFrame(() => { newPiece.style.transition = 'transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)'; newPiece.style.transform = 'translate(0, 0)'; }); });
+            }
+
+            SFX.slide();
+            if (checkWin()) return;
+            switchPlayer(loopDetected);
+            if (currentMode !== 'solo') pushMatchStateToFirebase();
+        }
+
+        function switchPlayer(penaltyTriggered) {
+            if (extraTurns > 0) extraTurns--; 
+            else { currentPlayer = currentPlayer === 'J1' ? 'J2' : 'J1'; if (penaltyTriggered) extraTurns = 1; }
+            updateUI();
+            
+            if (currentMode === 'solo') startTurnTimer(); 
+            
+            if (currentMode === 'solo' && currentPlayer === 'J2' && gameActive) { isAILoading = true; statusElement.innerHTML = `<span class="animate-pulse">${t('status_ai')}</span>`; setTimeout(playAIMove, 700); }
+        }
+
+        function playAIMove() {
+            if (!gameActive) return;
+            const level = aiLevelSelect.value; let useMonsterMove = (level === 'monstre'); let useSmartMove = (level === 'difficile') || (level === 'normal' && Math.random() > 0.4); 
+            if (phase === 'placement') {
+                let empty = []; boardState.forEach((val, i) => { if (val === '') empty.push(i); });
+                if (empty.length > 0) executePlacement(useMonsterMove ? getMonsterPlacement(empty) : (useSmartMove ? getSmartPlacement(empty) : empty[Math.floor(Math.random() * empty.length)]));
+            } else {
+                let possibleMoves = []; boardState.forEach((val, fromIndex) => { if (val === 'J2') adjacency[fromIndex].forEach(toIndex => { if (boardState[toIndex] === '') possibleMoves.push({ from: fromIndex, to: toIndex }); }); });
+                if (possibleMoves.length > 0) { let move = useMonsterMove ? getMonsterMovement(possibleMoves) : (useSmartMove ? getSmartMovement(possibleMoves) : possibleMoves[Math.floor(Math.random() * possibleMoves.length)]); executeMovement(move.from, move.to); } 
+                else switchPlayer(false);
+            }
+            isAILoading = false;
+        }
+        function getMonsterPlacement(emptyCases) { let winMove = findWinningSpot('J2'); if (winMove !== null) return winMove; let blockMove = findWinningSpot('J1'); if (blockMove !== null) return blockMove; if (boardState[4] === '') return 4; const corners = [0, 2, 6, 8].filter(c => emptyCases.includes(c)); if (corners.length > 0) return corners[Math.floor(Math.random() * corners.length)]; return emptyCases[Math.floor(Math.random() * emptyCases.length)]; }
+        function getMonsterMovement(possibleMoves) { for (let m of possibleMoves) { boardState[m.from] = ''; boardState[m.to] = 'J2'; let win = checkSilentWin(); boardState[m.from] = 'J2'; boardState[m.to] = ''; if (win) return m; } let dangerSpot = findWinningSpot('J1'); if (dangerSpot !== null) { for (let m of possibleMoves) { if (m.to === dangerSpot) return m; } } let safeMoves = []; for (let m of possibleMoves) { boardState[m.from] = ''; boardState[m.to] = 'J2'; let opponentCanWin = findWinningSpot('J1') !== null; boardState[m.from] = 'J2'; boardState[m.to] = ''; if (!opponentCanWin) safeMoves.push(m); } let movesToConsider = safeMoves.length > 0 ? safeMoves : possibleMoves; for (let m of movesToConsider) { if (m.to === 4) return m; } return movesToConsider[Math.floor(Math.random() * movesToConsider.length)]; }
+        function getSmartPlacement(emptyCases) { let winMove = findWinningSpot('J2'); if (winMove !== null) return winMove; let blockMove = findWinningSpot('J1'); if (blockMove !== null) return blockMove; if (boardState[4] === '') return 4; return emptyCases[Math.floor(Math.random() * emptyCases.length)]; }
+        function getSmartMovement(possibleMoves) { for (let m of possibleMoves) { boardState[m.from] = ''; boardState[m.to] = 'J2'; let win = checkSilentWin(); boardState[m.from] = 'J2'; boardState[m.to] = ''; if (win) return m; } let dangerSpot = findWinningSpot('J1'); if (dangerSpot !== null) { for (let m of possibleMoves) { if (m.to === dangerSpot) return m; } } return possibleMoves[Math.floor(Math.random() * possibleMoves.length)]; }
+        function findWinningSpot(player) { for (let i = 0; i < winningConditions.length; i++) { const [a, b, c] = winningConditions[i]; const vals = [boardState[a], boardState[b], boardState[c]]; if (vals.filter(v => v === player).length === 2 && vals.filter(v => v === '').length === 1) { if (boardState[a] === '') return a; if (boardState[b] === '') return b; if (boardState[c] === '') return c; } } return null; }
+        function checkSilentWin() { for (let i = 0; i < winningConditions.length; i++) { const [a, b, c] = winningConditions[i]; if (boardState[a] && boardState[a] === boardState[b] && boardState[a] === boardState[c]) return true; } return false; }
+
+        function checkWin() {
+            for (let i = 0; i < winningConditions.length; i++) {
+                const [a, b, c] = winningConditions[i];
+                if (boardState[a] && boardState[a] === boardState[b] && boardState[a] === boardState[c]) {
+                    gameActive = false; clearInterval(timerInterval); nodes[a].classList.add('victory-glow'); nodes[b].classList.add('victory-glow'); nodes[c].classList.add('victory-glow'); SFX.win();
+                    
+                    let winnerName = ''; playerStats.played++; 
+                    if (currentPlayer === 'J1') { winnerName = playerStats.id; playerStats.wins++; } 
+                    else { winnerName = currentMode === 'solo' ? t('player_ai') : (playerStats.opponentId || t('player_opponent')); if (currentMode === 'solo') playerStats.losses++; }
+                    
+                    saveSettings(); updateStatsDisplay();
+                    if (currentMode !== 'solo') pushMatchStateToFirebase(winnerName);
+                    setTimeout(() => { showVictoryEnd(winnerName); }, 600);
+                    return true;
+                }
+            } return false;
+        }
+
+        // ======= FORFAIT & VICTOIRE ======= //
+        function handleRestartClick() {
+            if (currentMode !== 'solo' && gameActive && currentMatchId && playerStats.opponentId) {
+                showModal('forfeit-modal');
+            } else if (currentMode === 'solo' && gameActive && piecesPlaced > 0) {
+                showModal('stop-solo-modal');
+            } else {
+                resetGame();
+            }
+        }
+        
+        function confirmStopSolo() {
+            hideModal('stop-solo-modal');
+            resetGame();
+        }
+
+        function declareForfeit() {
+            hideModal('forfeit-modal'); gameActive = false; clearInterval(timerInterval);
+            let winnerName = playerStats.opponentId || t('player_opponent');
+            playerStats.losses++; saveSettings(); updateStatsDisplay();
+            pushMatchStateToFirebase(winnerName, true);
+            showVictoryEnd(winnerName, true);
+        }
+
+        function showVictoryEnd(winnerName, isForfeit = false) {
+            phaseIndicator.innerText = t('game_over'); phaseIndicator.classList.add('text-green-400', 'scale-110'); statusElement.innerHTML = `🎉`;
+            let reasonText = isForfeit ? t('win_forfeit') : t('win_normal');
+            document.getElementById('victory-text').innerHTML = `<span class="text-yellow-400 drop-shadow-md">${winnerName}</span><br/><span class="text-2xl mt-2 block">${reasonText}</span>`;
+            showModal('victory-modal');
+        }
+
+        function updateBoardVisuals(isPlacement = false) {
+            const currentThemeData = themeSettings[themeSelect.value];
+            nodes.forEach((node, index) => {
+                node.innerHTML = ''; node.className = 'node';
+                if (boardState[index] !== '') {
+                    let htmlString = boardState[index] === 'J1' ? currentThemeData.pion1 : currentThemeData.pion2;
+                    if (!isPlacement || lastMoveIndex !== index) htmlString = htmlString.replace('symbol-animate', '');
+                    node.innerHTML = htmlString;
+                }
+                if (index === selectedPieceIndex) node.classList.add('selected');
+                if (index === lastMoveIndex) node.classList.add('last-move-glow');
+                if (phase === 'movement' && selectedPieceIndex !== null && boardState[index] === '') { if (adjacency[selectedPieceIndex].includes(index)) node.classList.add('valid-target'); }
+            });
+        }
+
+        function updateUI() {
+            if (!gameActive) return;
+            phaseIndicator.innerText = phase === 'placement' ? t('phase_1').replace('{0}', piecesPlaced) : t('phase_2'); 
+            phaseIndicator.classList.toggle('text-yellow-400', phase !== 'placement');
+            
+            const rawNameJ1 = playerStats.id; const rawNameJ2 = currentMode === 'solo' ? t('player_ai') : (playerStats.opponentId || t('player_opponent')); 
+            const rawName = currentPlayer === 'J1' ? rawNameJ1 : rawNameJ2; const name = `<span class="font-bold drop-shadow text-white">${rawName}</span>`;
+            
+            if (currentMode !== 'solo') {
+                const turnIndicator = isMyOnlineTurn() ? `<span class="text-green-400 ml-2 animate-pulse">${t('status_turn')}</span>` : `<span class="text-gray-400 ml-2">${t('status_wait')}</span>`;
+                if (extraTurns > 0) { statusElement.innerHTML = `<div class="bg-red-600 border border-red-400 text-white px-6 py-1.5 rounded-md font-bold shadow-md tracking-wide animate-pulse">${t('status_anticheat').replace('{0}', rawName)}</div>`; return; }
+                statusElement.innerHTML = phase === 'placement' ? t('status_place').replace('{0}', name) + ' ' + turnIndicator : (selectedPieceIndex !== null ? t('status_dest').replace('{0}', name) : t('status_drag_online').replace('{0}', name) + ' ' + turnIndicator);
+            } else {
+                if (extraTurns > 0) { statusElement.innerHTML = `<div class="bg-red-600 border border-red-400 text-white px-6 py-1.5 rounded-md font-bold shadow-md tracking-wide animate-pulse">${t('status_anticheat').replace('{0}', rawName)}</div>`; return; }
+                statusElement.innerHTML = phase === 'placement' ? t('status_place').replace('{0}', name) : (selectedPieceIndex !== null ? t('status_dest').replace('{0}', name) : t('status_drag').replace('{0}', name));
+            }
+        }
+
+        function loadSettings() {
+            const savedLang = localStorage.getItem('tapatan_lang');
+            if (savedLang) { currentLang = savedLang; document.getElementById('lang-select').value = currentLang; }
+            
+            const savedStats = localStorage.getItem('tapatan_stats');
+            if (savedStats) { let parsed = JSON.parse(savedStats); if (!parsed.tag) { parsed.tag = Math.floor(1000 + Math.random() * 9000).toString(); if (parsed.id && parsed.id.includes('#')) { let parts = parsed.id.split('#'); parsed.baseName = parts[0]; parsed.tag = parts[1]; } else { parsed.baseName = parsed.id || 'Joueur'; parsed.id = parsed.baseName + '#' + parsed.tag; } } playerStats = { ...playerStats, ...parsed }; } else { playerStats.tag = Math.floor(1000 + Math.random() * 9000).toString(); playerStats.id = playerStats.baseName + '#' + playerStats.tag; }
+            if (localStorage.getItem('tapatan_theme')) themeSelect.value = localStorage.getItem('tapatan_theme');
+            if (localStorage.getItem('tapatan_mode')) modeSelect.value = localStorage.getItem('tapatan_mode');
+            if (localStorage.getItem('tapatan_ai')) aiLevelSelect.value = localStorage.getItem('tapatan_ai');
+            if (localStorage.getItem('tapatan_sound') !== null) soundEnabled = localStorage.getItem('tapatan_sound') === 'true';
+
+            playerNameInput.value = playerStats.baseName; playerTagDisplay.innerText = '#' + playerStats.tag; soundToggle.checked = soundEnabled;
+            updateStatsDisplay(); updateKnownOpponentsUI(); applyLanguage();
+        }
+        function saveSettings() { localStorage.setItem('tapatan_lang', currentLang); localStorage.setItem('tapatan_stats', JSON.stringify(playerStats)); localStorage.setItem('tapatan_theme', themeSelect.value); localStorage.setItem('tapatan_mode', modeSelect.value); localStorage.setItem('tapatan_ai', aiLevelSelect.value); localStorage.setItem('tapatan_sound', soundEnabled); }
+        function updatePlayerId() { let val = playerNameInput.value.trim(); if (val !== '') { playerStats.baseName = val; playerStats.id = val + '#' + playerStats.tag; saveSettings(); updateUI(); listenToMyInvites(); } }
+        function updateStatsDisplay() { document.getElementById('stat-played').innerText = playerStats.played; document.getElementById('stat-wins').innerText = playerStats.wins; document.getElementById('stat-losses').innerText = playerStats.losses; }
+        function updateKnownOpponentsUI() { document.getElementById('known-opponents').innerHTML = ''; (playerStats.knownOpponents || []).forEach(opp => { const opt = document.createElement('option'); opt.value = opp; document.getElementById('known-opponents').appendChild(opt); }); }
+
+        function handleModeChange() {
+            currentMode = modeSelect.value;
+            aiLevelContainer.style.height = currentMode === 'solo' ? '68px' : '0px'; 
+            aiLevelContainer.style.opacity = currentMode === 'solo' ? '1' : '0'; 
+            aiLevelContainer.style.marginTop = currentMode === 'solo' ? '0' : '-1rem';
+            
+            opponentIdContainer.style.height = currentMode === 'online_friend' ? '90px' : '0px'; 
+            opponentIdContainer.style.opacity = currentMode === 'online_friend' ? '1' : '0'; 
+            opponentIdContainer.style.marginTop = currentMode === 'online_friend' ? '0' : '-1rem';
+            
+            // Correction du bug : Augmentation de la hauteur à 135px pour éviter de couper le bouton
+            matchmakingContainer.style.height = currentMode === 'online_random' ? '135px' : '0px'; 
+            matchmakingContainer.style.opacity = currentMode === 'online_random' ? '1' : '0'; 
+            matchmakingContainer.style.marginTop = currentMode === 'online_random' ? '0' : '-1rem';
+            
+            saveSettings(); resetGame();
+        }
+        
+        function changeTheme() { const tData = themeSettings[themeSelect.value]; document.body.setAttribute('data-theme', themeSelect.value); document.getElementById('board-lines').setAttribute('stroke', tData.strokeColor); document.getElementById('board-lines').setAttribute('stroke-width', tData.strokeWidth); document.getElementById('board-lines').setAttribute('filter', tData.filter); saveSettings(); updateBoardVisuals(); if (gameActive) updateUI(); }
+        function showModal(id) { const m = document.getElementById(id); m.classList.remove('modal-enter'); m.classList.add('modal-active'); }
+        function hideModal(id) { const m = document.getElementById(id); m.classList.remove('modal-active'); m.classList.add('modal-enter'); }
+        function toggleSettings() { document.getElementById('settings-modal').classList.contains('modal-enter') ? showModal('settings-modal') : hideModal('settings-modal'); }
+        
+        // Define openInfoModal globally
+        window.openInfoModal = function(type) { 
+            hideModal('settings-modal'); 
+            document.getElementById('info-title').innerHTML = infoTexts[type].title; 
+            document.getElementById('info-content').innerHTML = infoTexts[type].content; 
+            setTimeout(() => showModal('info-modal'), 300); 
+        };
+
+        // Define closeInfoModal globally
+        window.closeInfoModal = function() { 
+            hideModal('info-modal'); 
+            setTimeout(() => showModal('settings-modal'), 300); 
+        };
+
+        function resetGameLocal() {
+            boardState = ['', '', '', '', '', '', '', '', '']; currentPlayer = 'J1'; gameActive = true; phase = 'placement';
+            piecesPlaced = 0; selectedPieceIndex = null; lastMoveIndex = null; isAILoading = false; moveHistory = { 'J1': [], 'J2': [] }; extraTurns = 0; 
+            hideModal('victory-modal'); phaseIndicator.classList.remove('text-green-400', 'scale-110'); nodes.forEach(node => { node.style.backgroundColor = ''; node.classList.remove('victory-glow', 'last-move-glow'); });
+            
+            document.getElementById('chat-messages').innerHTML = `<div class="text-center text-xs text-gray-500 my-auto">${t('chat_disclaimer')}</div>`;
+            localChatCount = 0;
+            if (currentMode === 'solo') document.getElementById('chat-toggle-btn').classList.add('hidden');
+            
+            startTurnTimer();
+            updateBoardVisuals(); updateUI();
+        }
+
+        function resetGame() {
+            resetGameLocal();
+            if (currentMode !== 'solo' && isHost && currentMatchId) pushMatchStateToFirebase();
+        }
+
+        // Init
+        loadSettings(); handleModeChange(); changeTheme(); updateUI(); startTurnTimer();
+
+    </script>
+</body>
+</html>
