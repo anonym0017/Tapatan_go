@@ -242,10 +242,10 @@
             <div class="text-6xl mb-4 animate-bounce">🏆</div>
             <h2 id="victory-text" class="text-2xl font-extrabold mb-6 text-white drop-shadow-md text-center leading-tight"></h2>
             <div class="flex gap-3 w-full mt-2">
-                <button id="btn-rejouer" onclick="handleReplayClick()" class="flex-1 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 text-gray-900 rounded-xl font-black text-sm uppercase tracking-widest transition-all shadow-lg hover:shadow-xl hover:scale-105" data-i18n="victory_replay">
+                <button onclick="resetGame(); hideModal('victory-modal');" class="flex-1 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 text-gray-900 rounded-xl font-black text-sm uppercase tracking-widest transition-all shadow-lg hover:shadow-xl hover:scale-105" data-i18n="victory_replay">
                     Rejouer
                 </button>
-                <button onclick="leaveMatch()" class="flex-1 py-3 bg-gray-600 hover:bg-gray-500 text-white rounded-xl font-black text-sm uppercase tracking-widest transition-all shadow-lg hover:shadow-xl" data-i18n="victory_close">
+                <button onclick="hideModal('victory-modal');" class="flex-1 py-3 bg-gray-600 hover:bg-gray-500 text-white rounded-xl font-black text-sm uppercase tracking-widest transition-all shadow-lg hover:shadow-xl" data-i18n="victory_close">
                     Fermer
                 </button>
             </div>
@@ -259,20 +259,9 @@
             <button onclick="toggleSettings()" class="text-gray-300 hover:text-white p-1 sm:p-2 rounded-full hover:bg-white/10 transition-all hover:rotate-90">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
             </button>
-            
-            <!-- INTEGRATION LOGO OPTION 2 & TITRE -->
-            <div class="flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="drop-shadow-lg opacity-90">
-                  <line x1="4" y1="20" x2="20" y2="4" stroke="rgba(255,255,255,0.3)"></line>
-                  <circle cx="6" cy="18" r="3" fill="#38bdf8" stroke="none"></circle>
-                  <circle cx="12" cy="12" r="3" fill="#38bdf8" stroke="none"></circle>
-                  <circle cx="18" cy="6" r="3" fill="#f472b6" stroke="none"></circle>
-                </svg>
-                <h1 class="text-3xl sm:text-4xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-pink-300 drop-shadow-lg tracking-wide">
-                    Tapatan
-                </h1>
-            </div>
-
+            <h1 class="text-3xl sm:text-4xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-pink-300 drop-shadow-lg tracking-wide">
+                Tapatan
+            </h1>
             <button onclick="handleRestartClick()" class="text-gray-300 hover:text-white p-1 sm:p-2 rounded-full hover:bg-white/10 transition-all hover:-rotate-180" title="Recommencer">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
             </button>
@@ -336,8 +325,8 @@
             <div class="text-center text-xs text-gray-500 my-auto" data-i18n="chat_disclaimer">Les messages disparaîtront à la fin de la partie.</div>
         </div>
         <div class="p-3 bg-gray-900 flex gap-2">
-            <input type="text" id="chat-input" class="flex-1 bg-gray-700 text-white border border-gray-600 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400" data-i18n-placeholder="chat_placeholder" placeholder="Votre message..." onkeypress="if(event.key === 'Enter') window.sendChatMessage()">
-            <button onclick="window.sendChatMessage()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-bold">></button>
+            <input type="text" id="chat-input" class="flex-1 bg-gray-700 text-white border border-gray-600 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400" data-i18n-placeholder="chat_placeholder" placeholder="Votre message..." onkeypress="if(event.key==='Enter') sendChatMessage()">
+            <button onclick="sendChatMessage()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-bold">></button>
         </div>
     </div>
 
@@ -361,19 +350,20 @@
         // Mode développement pour l'éditeur (fallback)
         const isDev = typeof __firebase_config !== 'undefined';
         if (isDev) { config = JSON.parse(__firebase_config); } 
+        else if (Object.keys(config).length === 0) { console.warn("Configuration Firebase manquante ! Le mode en ligne ne marchera pas."); }
 
+        // Fonction pour gérer les chemins de base de données
         const FIREBASE_APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'tapatan-game';
         function getFbPath(...paths) {
-            if (isDev) return ['artifacts', FIREBASE_APP_ID, 'public', 'data', ...paths]; 
-            return paths; 
+            if (isDev) return ['artifacts', FIREBASE_APP_ID, 'public', 'data', ...paths]; // Chemin Canvas
+            return paths; // Chemin de Production Vercel (Racine)
         }
 
-        // ======= VARIABLES GLOBALES ET MOTEUR ======= //
+        // ======= MOTEUR MULTIJOUEUR EN LIGNE ======= //
         let fbApp, fbAuth, fbDb, signInAnonymously, signInWithCustomToken, onAuthStateChanged;
         let doc, setDoc, getDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, getDocs, limit, arrayUnion;
         let isOnlineReady = false; let unsubscribeInvite = null; let unsubscribeMatch = null; let unsubscribeMatchmaking = null;
         let currentMatchId = null; let isHost = false; let fbUser = null; let currentPendingInvite = null; let waitingMode = null; 
-        let timerInterval = null; let isChatOpen = false; let localChatCount = 0;
 
         if (Object.keys(config).length > 0) {
             import('https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js').then(appModule => {
@@ -388,7 +378,7 @@
                         if (isDev && typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                             await signInWithCustomToken(fbAuth, __initial_auth_token);
                         } else {
-                            await signInAnonymously(fbAuth);
+                            await signInAnonymously(fbAuth); // Utilise l'auth anonyme en Prod
                         }
 
                         onAuthStateChanged(fbAuth, (user) => {
@@ -433,6 +423,8 @@
         const adjacency = { 0: [1,3,4], 1: [0,2,4], 2: [1,5,4], 3: [0,6,4], 4: [0,1,2,3,5,6,7,8], 5: [2,8,4], 6: [3,7,4], 7: [6,8,4], 8: [5,7,4] };
         const winningConditions = [ [0,1,2], [3,4,5], [6,7,8], [0,3,6], [1,4,7], [2,5,8], [0,4,8], [2,4,6] ];
         
+        let timerInterval = null; 
+
         // Translations
         let currentLang = 'fr';
         const translations = {
@@ -448,7 +440,7 @@
                 btn_help: "Aide", btn_rules: "Règles", btn_cgu: "CGU", btn_close: "Fermer",
                 waiting_invite_title: "Invitation envoyée", waiting_invite_desc: "En attente de la réponse de", btn_cancel: "Annuler", btn_stop: "Arrêter",
                 incoming_invite_title: "Nouveau Défi !", incoming_invite_desc: "vous invite à jouer.", btn_accept: "Accepter", btn_decline: "Refuser",
-                victory_replay: "Rejouer", victory_close: "Fermer / Paramètres", victory_replay_wait: "Adversaire prêt !<br/>Accepter ?", waiting_rematch_title: "Revanche", waiting_rematch_desc: "En attente de l'adversaire...",
+                victory_replay: "Rejouer", victory_close: "Fermer",
                 chat_title: "💬 Messagerie Instantanée", chat_disclaimer: "Les messages disparaîtront à la fin de la partie.", chat_placeholder: "Votre message...",
                 forfeit_title: "Déclarer Forfait ?", forfeit_desc: "Si vous recommencez, votre adversaire gagne.", btn_forfeit: "Forfait",
                 stop_solo_title: "Arrêter la partie ?", stop_solo_desc: "Voulez-vous vraiment recommencer ?",
@@ -471,7 +463,7 @@
                 btn_help: "Help", btn_rules: "Rules", btn_cgu: "Terms", btn_close: "Close",
                 waiting_invite_title: "Invite sent", waiting_invite_desc: "Waiting for response from", btn_cancel: "Cancel", btn_stop: "Stop",
                 incoming_invite_title: "New Challenge!", incoming_invite_desc: "invites you to play.", btn_accept: "Accept", btn_decline: "Decline",
-                victory_replay: "Play Again", victory_close: "Close / Settings", victory_replay_wait: "Opponent is ready!<br/>Accept?", waiting_rematch_title: "Rematch", waiting_rematch_desc: "Waiting for opponent...",
+                victory_replay: "Play Again", victory_close: "Close",
                 chat_title: "💬 Instant Messaging", chat_disclaimer: "Messages will disappear at the end of the game.", chat_placeholder: "Your message...",
                 forfeit_title: "Forfeit Game?", forfeit_desc: "If you restart now, your opponent will win.", btn_forfeit: "Forfeit",
                 stop_solo_title: "Stop the game?", stop_solo_desc: "Do you really want to restart?",
@@ -496,7 +488,7 @@
             infoTexts = { 
                 aide: { title: currentLang==='fr' ? "❓ Aide au jeu" : "❓ Help", content: currentLang==='fr' ? "<p>Le jeu se déroule en deux phases :</p><ul class='list-disc pl-5 mt-2'><li><strong>Phase 1 :</strong> Cliquez sur une case vide pour y placer un pion.</li><li><strong>Phase 2 :</strong> <b>Glissez</b> votre pion vers une case adjacente, ou cliquez dessus puis cliquez sur la destination.</li></ul>" : "<p>The game has two phases:</p><ul class='list-disc pl-5 mt-2'><li><strong>Phase 1:</strong> Click an empty spot to place a piece.</li><li><strong>Phase 2:</strong> <b>Drag</b> your piece to an adjacent spot.</li></ul>" }, 
                 regles: { title: currentLang==='fr' ? "📜 Règles & Pénalités" : "📜 Rules & Penalties", content: currentLang==='fr' ? "<p><strong>⚠️ Règle Anti-Jeu :</strong> Il est interdit de faire <strong>4 allers-retours consécutifs</strong>. Si un joueur bloque le jeu de cette manière, son adversaire gagne le droit de jouer 2 fois de suite !</p><br/><p><strong>⏱️ Chronomètre :</strong> Vous avez 15s par tour. Si le temps s'écoule, un coup est joué au hasard.</p>" : "<p><strong>⚠️ Anti-Cheat:</strong> You cannot make <strong>4 consecutive back-and-forth moves</strong>. If a player stalls this way, their opponent gets to play 2 times in a row!</p><br/><p><strong>⏱️ Timer:</strong> You have 15s per turn. If time runs out, a random move is made.</p>" }, 
-                cgu: { title: currentLang==='fr' ? "⚖️ Infos Serveur" : "⚖️ Server Info", content: currentLang==='fr' ? "<p>Ce jeu utilise une architecture Serverless avec Firebase pour le temps réel. Votre ID unique utilise un tag (#1234) pour garantir que vous puissiez trouver vos amis sans avoir besoin d'un compte obligatoire.</p>" : "<p>This game uses Serverless architecture via Firebase. The unique ID system uses tags (#1234) so you don't need to register an account to find friends.</p>" } 
+                cgu: { title: currentLang==='fr' ? "⚖️ Infos Serveur" : "⚖️ Server Info", content: currentLang==='fr' ? "<p>Ce jeu signé DOMELY, utilise une architecture Serverless avec Firebase pour le temps réel. Votre ID unique utilise un tag (#1234) pour garantir que vous puissiez trouver vos amis sans avoir besoin d'un compte obligatoire.</p>" : "<p>This game signed DOMELY, uses Serverless architecture via Firebase. The unique ID system uses tags (#1234) so you don't need to register an account to find friends.</p>" } 
             };
             updateUI();
         }
@@ -746,20 +738,20 @@
             } return false;
         }
 
-        // ======= 9. FORFAIT, REJOUER & QUITTER ======= //
+        // ======= 9. FORFAIT & VICTOIRE ======= //
         window.handleRestartClick = function() {
             if (currentMode !== 'solo' && gameActive && currentMatchId && playerStats.opponentId) {
                 showModal('forfeit-modal');
             } else if (currentMode === 'solo' && gameActive && piecesPlaced > 0) {
                 showModal('stop-solo-modal');
             } else {
-                resetGameLocal();
+                resetGame();
             }
         };
         
         window.confirmStopSolo = function() {
             hideModal('stop-solo-modal');
-            window.leaveMatch();
+            resetGame();
         };
 
         window.declareForfeit = function() {
@@ -774,48 +766,7 @@
             phaseIndicator.innerText = t('game_over'); phaseIndicator.classList.add('text-green-400', 'scale-110'); statusElement.innerHTML = `🎉`;
             let reasonText = isForfeit ? t('win_forfeit') : t('win_normal');
             document.getElementById('victory-text').innerHTML = `<span class="text-yellow-400 drop-shadow-md">${winnerDisplayName}</span><br/><span class="text-lg sm:text-2xl mt-1 sm:mt-2 block">${reasonText}</span>`;
-            
-            const btnRejouer = document.getElementById('btn-rejouer');
-            if(btnRejouer) { btnRejouer.innerHTML = t('victory_replay'); btnRejouer.classList.remove('animate-pulse'); }
-            
             showModal('victory-modal');
-        }
-        
-        window.handleReplayClick = async function() {
-            if (currentMode === 'solo') {
-                resetGameLocal();
-            } else if (currentMatchId) {
-                hideModal('victory-modal');
-                document.getElementById('waiting-title').innerText = t('waiting_rematch_title');
-                document.getElementById('waiting-opponent-name').innerText = t('waiting_rematch_desc');
-                waitingMode = 'rematch';
-                showModal('waiting-modal');
-                const matchRef = doc(fbDb, ...getFbPath('matches', currentMatchId));
-                try { await updateDoc(matchRef, { wantRematch: arrayUnion(playerStats.id) }); } catch(e){}
-            }
-        };
-
-        window.leaveMatch = async function() {
-            hideModal('victory-modal'); hideModal('waiting-modal'); hideModal('forfeit-modal'); hideModal('stop-solo-modal');
-            
-            if (currentMode !== 'solo' && currentMatchId && isOnlineReady) {
-                const matchRef = doc(fbDb, ...getFbPath('matches', currentMatchId));
-                try { await updateDoc(matchRef, { playerLeft: playerStats.id }); } catch(e) {}
-                if (unsubscribeMatch) unsubscribeMatch();
-                currentMatchId = null; playerStats.opponentId = '';
-            }
-            
-            gameActive = false; clearInterval(timerInterval); document.getElementById('chat-toggle-btn').classList.add('hidden');
-            resetGameLocal(); showModal('settings-modal');
-        };
-
-        async function resetGameFirebase() {
-            const matchRef = doc(fbDb, ...getFbPath('matches', currentMatchId));
-            const expires = Date.now() + turnDuration * 1000;
-            await updateDoc(matchRef, { 
-                boardState: ['', '', '', '', '', '', '', '', ''], currentPlayer: 'J1', phase: 'placement', piecesPlaced: 0,
-                lastMoveIndex: null, extraTurns: 0, turnExpiresAt: expires, winner: null, isForfeit: null, wantRematch: []
-            });
         }
 
         function updateBoardVisuals(isPlacement = false) {
@@ -891,7 +842,7 @@
             matchmakingContainer.style.opacity = currentMode === 'online_random' ? '1' : '0'; 
             matchmakingContainer.style.marginTop = currentMode === 'online_random' ? '0' : '-0.75rem';
             
-            saveSettings(); resetGameLocal();
+            saveSettings(); resetGame();
         };
         
         window.changeTheme = function() { const tData = themeSettings[themeSelect.value]; document.body.setAttribute('data-theme', themeSelect.value); document.getElementById('board-lines').setAttribute('stroke', tData.strokeColor); document.getElementById('board-lines').setAttribute('stroke-width', tData.strokeWidth); document.getElementById('board-lines').setAttribute('filter', tData.filter); saveSettings(); updateBoardVisuals(); if (gameActive) updateUI(); };
@@ -975,18 +926,10 @@
                 }
             } catch (error) { console.error("Matchmaking error:", error); cancelWaitingAction(); }
         };
-        
-        window.cancelWaitingAction = async function() { 
-            if (waitingMode === 'rematch') { window.leaveMatch(); return; }
-            if (waitingMode === 'invite') { deleteDoc(doc(fbDb, ...getFbPath('invites', getSafeId(document.getElementById('waiting-opponent-name').innerText)))); listenToMyInvites(); } 
-            else if (waitingMode === 'matchmaking') { if (unsubscribeMatchmaking) unsubscribeMatchmaking(); deleteDoc(doc(fbDb, ...getFbPath('matchmaking', getSafeId(playerStats.id)))); } 
-            hideModal('waiting-modal'); showModal('settings-modal'); waitingMode = null; 
-        };
+        window.cancelWaitingAction = async function() { if (waitingMode === 'invite') { deleteDoc(doc(fbDb, ...getFbPath('invites', getSafeId(document.getElementById('waiting-opponent-name').innerText)))); listenToMyInvites(); } else if (waitingMode === 'matchmaking') { if (unsubscribeMatchmaking) unsubscribeMatchmaking(); deleteDoc(doc(fbDb, ...getFbPath('matchmaking', getSafeId(playerStats.id)))); } hideModal('waiting-modal'); showModal('settings-modal'); waitingMode = null; };
 
         // CHAT
         window.toggleChat = function() {
-            const chatPanel = document.getElementById('chat-panel');
-            const chatBadge = document.getElementById('chat-unread-badge');
             isChatOpen = !isChatOpen;
             if (isChatOpen) {
                 chatPanel.classList.remove('translate-y-full');
@@ -1006,7 +949,6 @@
         };
         function renderChat(chatArray) {
             const chatMessagesDiv = document.getElementById('chat-messages');
-            const chatBadge = document.getElementById('chat-unread-badge');
             for (let i = localChatCount; i < chatArray.length; i++) {
                 const msg = chatArray[i]; const isMe = msg.sender === playerStats.baseName;
                 const msgDiv = document.createElement('div'); msgDiv.className = `max-w-[85%] rounded-xl px-3 py-2 text-sm ${isMe ? 'bg-blue-600 self-end rounded-br-sm' : 'bg-gray-700 self-start rounded-bl-sm'}`;
@@ -1025,48 +967,20 @@
 
             try {
                 unsubscribeMatch = onSnapshot(matchRef, (snapshot) => {
-                    if (!snapshot.exists()) return;
-                    const state = snapshot.data();
-                    
-                    if (state.playerLeft && state.playerLeft !== playerStats.id) {
-                        showTemporaryAlert("L'adversaire a quitté la partie.", "bg-red-600");
-                        window.leaveMatch(); return;
-                    }
-
-                    if (state.wantRematch && state.wantRematch.length === 2) {
-                        hideModal('waiting-modal'); hideModal('victory-modal');
-                        if (isHost) resetGameFirebase();
-                        return; 
-                    }
-
-                    if (state.wantRematch && state.wantRematch.includes(playerStats.opponentId) && !state.wantRematch.includes(playerStats.id)) {
-                        const btnRejouer = document.getElementById('btn-rejouer');
-                        if(btnRejouer) { btnRejouer.innerHTML = t('victory_replay_wait'); btnRejouer.classList.add('animate-pulse'); }
-                    }
-
-                    if (state.chat && state.chat.length > localChatCount) renderChat(state.chat);
-                    
-                    if (gameActive === false && !state.winner && state.boardState && state.boardState.join('') === '') {
-                         hideModal('waiting-modal'); hideModal('victory-modal');
-                         resetGameLocal();
-                         if (state.turnExpiresAt) window.startTurnTimer(state.turnExpiresAt);
-                    }
-
-                    if (!state.winner && gameActive) {
+                    if (snapshot.exists()) {
+                        const state = snapshot.data();
+                        if (state.chat && state.chat.length > localChatCount) renderChat(state.chat);
                         boardState = state.boardState || ['', '', '', '', '', '', '', '', '']; currentPlayer = state.currentPlayer || 'J1'; phase = state.phase || 'placement'; piecesPlaced = state.piecesPlaced || 0; lastMoveIndex = state.lastMoveIndex !== undefined ? state.lastMoveIndex : null; extraTurns = state.extraTurns || 0;
-                        if (state.turnExpiresAt && state.piecesPlaced > 0) window.startTurnTimer(state.turnExpiresAt);
+                        if (state.turnExpiresAt) window.startTurnTimer(state.turnExpiresAt);
                         updateBoardVisuals(); updateUI();
-                    }
-
-                    if (state.winner && gameActive) { 
-                        gameActive = false; clearInterval(timerInterval); 
-                        const btnRejouer = document.getElementById('btn-rejouer');
-                        if(btnRejouer) { btnRejouer.innerHTML = t('victory_replay'); btnRejouer.classList.remove('animate-pulse'); }
-
-                        if (state.winner === playerStats.id) playerStats.wins++; else playerStats.losses++; 
-                        saveSettings(); updateStatsDisplay(); 
-                        let displayW = state.winner.split('#')[0];
-                        showVictoryEnd(displayW, state.isForfeit); 
+                        if (state.winner && gameActive) { 
+                            gameActive = false; clearInterval(timerInterval); 
+                            if (state.winner === playerStats.id) playerStats.wins++; 
+                            else playerStats.losses++; 
+                            saveSettings(); updateStatsDisplay(); 
+                            let displayW = state.winner.split('#')[0];
+                            showVictoryEnd(displayW, state.isForfeit); 
+                        }
                     }
                 });
             } catch(e) {}
@@ -1078,18 +992,23 @@
             const expires = Date.now() + turnDuration * 1000;
             const dataToPush = { boardState, currentPlayer, phase, piecesPlaced, lastMoveIndex, extraTurns, turnExpiresAt: expires };
             if (winnerId) { dataToPush.winner = winnerId; if (isForfeit) dataToPush.isForfeit = true; }
-            await updateDoc(matchRef, dataToPush); 
+            await setDoc(matchRef, dataToPush, { merge: true });
         }
 
         function resetGameLocal() {
             boardState = ['', '', '', '', '', '', '', '', '']; currentPlayer = 'J1'; gameActive = true; phase = 'placement';
             piecesPlaced = 0; selectedPieceIndex = null; lastMoveIndex = null; isAILoading = false; moveHistory = { 'J1': [], 'J2': [] }; extraTurns = 0; 
-            isDragging = false; dragGhost.style.display = 'none'; let sel = document.querySelector('.node.selected'); if(sel) sel.style.opacity = '1';
+            isDragging = false; dragGhost.style.display = 'none';
             hideModal('victory-modal'); phaseIndicator.classList.remove('text-green-400', 'scale-110'); nodes.forEach(node => { node.style.backgroundColor = ''; node.classList.remove('victory-glow', 'last-move-glow'); });
             document.getElementById('chat-messages').innerHTML = `<div class="text-center text-xs text-gray-500 my-auto">${t('chat_disclaimer')}</div>`; localChatCount = 0;
             if (currentMode === 'solo') document.getElementById('chat-toggle-btn').classList.add('hidden');
             clearInterval(timerInterval); timerText.innerText = currentMode === 'solo' ? '15' : '15'; timerCircle.style.strokeDashoffset = 0; timerCircle.classList.replace('text-red-500', 'text-blue-500');
             updateBoardVisuals(); updateUI();
+        }
+
+        window.resetGame = function() {
+            resetGameLocal();
+            if (currentMode !== 'solo' && isHost && currentMatchId) pushMatchStateToFirebase();
         }
 
         let tempAlertTimeout = null;
