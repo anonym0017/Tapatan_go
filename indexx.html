@@ -332,38 +332,19 @@
 
     <!-- SCRIPT -->
     <script>
-        /* =========================================================================
-           1. CONFIGURATION FIREBASE
-        ========================================================================= */
-        const firebaseConfig = {
-            apiKey: "AIzaSyB6VwNowvbtM_vWJG7IszoGP6CItZgcDd0",
-            authDomain: "tapatan-go.firebaseapp.com",
-            projectId: "tapatan-go",
-            storageBucket: "tapatan-go.firebasestorage.app",
-            messagingSenderId: "349484264207",
-            appId: "1:349484264207:web:84a8f5268d5e3934062c7a",
-            measurementId: "G-N22F4RH0LG"
-        };
-        
-        let config = firebaseConfig;
-        
-        // Mode développement pour l'éditeur (fallback)
-        const isDev = typeof __firebase_config !== 'undefined';
-        if (isDev) { config = JSON.parse(__firebase_config); } 
-        else if (Object.keys(config).length === 0) { console.warn("Configuration Firebase manquante ! Le mode en ligne ne marchera pas."); }
-
-        // Fonction pour gérer les chemins de base de données
-        const FIREBASE_APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'tapatan-game';
-        function getFbPath(...paths) {
-            if (isDev) return ['artifacts', FIREBASE_APP_ID, 'public', 'data', ...paths]; // Chemin Canvas
-            return paths; // Chemin de Production Vercel (Racine)
-        }
+        const FIREBASE_APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'tapatan-game-public';
 
         // ======= MOTEUR MULTIJOUEUR EN LIGNE ======= //
         let fbApp, fbAuth, fbDb, signInAnonymously, signInWithCustomToken, onAuthStateChanged;
         let doc, setDoc, getDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, getDocs, limit, arrayUnion;
         let isOnlineReady = false; let unsubscribeInvite = null; let unsubscribeMatch = null; let unsubscribeMatchmaking = null;
         let currentMatchId = null; let isHost = false; let fbUser = null; let currentPendingInvite = null; let waitingMode = null; 
+
+        // Configuration pour l'environnement de test (Canvas)
+        let config = {};
+        if (typeof __firebase_config !== 'undefined') { 
+            config = JSON.parse(__firebase_config); 
+        } 
 
         if (Object.keys(config).length > 0) {
             import('https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js').then(appModule => {
@@ -375,10 +356,10 @@
                         onSnapshot = fsModule.onSnapshot; collection = fsModule.collection; query = fsModule.query; where = fsModule.where; getDocs = fsModule.getDocs; limit = fsModule.limit;
                         arrayUnion = fsModule.arrayUnion;
 
-                        if (isDev && typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                             await signInWithCustomToken(fbAuth, __initial_auth_token);
                         } else {
-                            await signInAnonymously(fbAuth); // Utilise l'auth anonyme en Prod
+                            await signInAnonymously(fbAuth);
                         }
 
                         onAuthStateChanged(fbAuth, (user) => {
@@ -488,7 +469,7 @@
             infoTexts = { 
                 aide: { title: currentLang==='fr' ? "❓ Aide au jeu" : "❓ Help", content: currentLang==='fr' ? "<p>Le jeu se déroule en deux phases :</p><ul class='list-disc pl-5 mt-2'><li><strong>Phase 1 :</strong> Cliquez sur une case vide pour y placer un pion.</li><li><strong>Phase 2 :</strong> <b>Glissez</b> votre pion vers une case adjacente, ou cliquez dessus puis cliquez sur la destination.</li></ul>" : "<p>The game has two phases:</p><ul class='list-disc pl-5 mt-2'><li><strong>Phase 1:</strong> Click an empty spot to place a piece.</li><li><strong>Phase 2:</strong> <b>Drag</b> your piece to an adjacent spot.</li></ul>" }, 
                 regles: { title: currentLang==='fr' ? "📜 Règles & Pénalités" : "📜 Rules & Penalties", content: currentLang==='fr' ? "<p><strong>⚠️ Règle Anti-Jeu :</strong> Il est interdit de faire <strong>4 allers-retours consécutifs</strong>. Si un joueur bloque le jeu de cette manière, son adversaire gagne le droit de jouer 2 fois de suite !</p><br/><p><strong>⏱️ Chronomètre :</strong> Vous avez 15s par tour. Si le temps s'écoule, un coup est joué au hasard.</p>" : "<p><strong>⚠️ Anti-Cheat:</strong> You cannot make <strong>4 consecutive back-and-forth moves</strong>. If a player stalls this way, their opponent gets to play 2 times in a row!</p><br/><p><strong>⏱️ Timer:</strong> You have 15s per turn. If time runs out, a random move is made.</p>" }, 
-                cgu: { title: currentLang==='fr' ? "⚖️ Infos Serveur" : "⚖️ Server Info", content: currentLang==='fr' ? "<p>Ce jeu signé DOMELY, utilise une architecture Serverless avec Firebase pour le temps réel. Votre ID unique utilise un tag (#1234) pour garantir que vous puissiez trouver vos amis sans avoir besoin d'un compte obligatoire.</p>" : "<p>This game signed DOMELY, uses Serverless architecture via Firebase. The unique ID system uses tags (#1234) so you don't need to register an account to find friends.</p>" } 
+                cgu: { title: currentLang==='fr' ? "⚖️ Infos Serveur" : "⚖️ Server Info", content: currentLang==='fr' ? "<p>Ce jeu utilise une architecture Serverless avec Firebase pour le temps réel. Votre ID unique utilise un tag (#1234) pour garantir que vous puissiez trouver vos amis sans avoir besoin d'un compte obligatoire.</p>" : "<p>This game uses Serverless architecture via Firebase. The unique ID system uses tags (#1234) so you don't need to register an account to find friends.</p>" } 
             };
             updateUI();
         }
@@ -588,7 +569,7 @@
             }
         }
 
-        // DRAG & DROP
+        // DRAG & DROP FIXÉ
         let isDragging = false; let dragStartIndex = null; let justDropped = false; 
         nodes.forEach(node => {
             node.addEventListener('pointerdown', (e) => {
@@ -605,6 +586,7 @@
                         isDragging = true; dragStartIndex = index; selectPiece(index);
                         dragGhost.innerHTML = node.innerHTML; 
                         
+                        // CORRECTION DU DRAG & DROP : Fixation explicite de la taille
                         dragGhost.style.width = node.offsetWidth + 'px';
                         dragGhost.style.height = node.offsetHeight + 'px';
                         dragGhost.style.display = 'flex';
@@ -789,10 +771,11 @@
             phaseIndicator.innerText = phase === 'placement' ? t('phase_1').replace('{0}', piecesPlaced) : t('phase_2'); 
             phaseIndicator.classList.toggle('text-yellow-400', phase !== 'placement');
             
+            // CORRECTION DE L'AFFICHAGE DU PSEUDO PENDANT LE JEU
             const nameJ1 = playerStats.baseName; 
             let nameJ2 = t('player_opponent');
             if (currentMode === 'solo') nameJ2 = t('player_ai');
-            else if (playerStats.opponentId) nameJ2 = playerStats.opponentId.split('#')[0]; 
+            else if (playerStats.opponentId) nameJ2 = playerStats.opponentId.split('#')[0]; // On retire le tag
             
             const rawName = currentPlayer === 'J1' ? nameJ1 : nameJ2; 
             const name = `<span class="font-bold drop-shadow text-white">${rawName}</span>`;
@@ -862,12 +845,12 @@
             setTimeout(() => showModal('settings-modal'), 300); 
         };
 
-        // Firebase Listeners Wrappers
+        // Firebase Listeners Wrappers (Avec configuration Canvas sécurisée)
         function getSafeId(id) { return id.replace(/#/g, '_'); }
         function listenToMyInvites() {
             if (!isOnlineReady || !fbUser || !playerStats.id || typeof onSnapshot === 'undefined') return;
             if (unsubscribeInvite) unsubscribeInvite();
-            const inviteRef = doc(fbDb, ...getFbPath('invites', getSafeId(playerStats.id)));
+            const inviteRef = doc(fbDb, 'artifacts', FIREBASE_APP_ID, 'public', 'data', 'invites', getSafeId(playerStats.id));
             try {
                 unsubscribeInvite = onSnapshot(inviteRef, (snapshot) => {
                     if (snapshot.exists()) {
@@ -885,7 +868,7 @@
             if (!oppId || oppId === playerStats.id || !oppId.includes('#')) { alert("L'ID doit contenir un # (ex: Alex#1234)"); return; }
             if (!playerStats.knownOpponents.includes(oppId)) { playerStats.knownOpponents.push(oppId); saveSettings(); updateKnownOpponentsUI(); }
             const matchId = `match_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`; 
-            const targetRef = doc(fbDb, ...getFbPath('invites', getSafeId(oppId))); 
+            const targetRef = doc(fbDb, 'artifacts', FIREBASE_APP_ID, 'public', 'data', 'invites', getSafeId(oppId)); 
             waitingMode = 'invite'; document.getElementById('waiting-title').innerText = t('waiting_invite_title'); document.getElementById('waiting-opponent-name').innerText = oppId.split('#')[0]; hideModal('settings-modal'); showModal('waiting-modal');
             
             try {
@@ -901,32 +884,32 @@
             } catch (error) { hideModal('waiting-modal'); showTemporaryAlert("Erreur réseau", "bg-red-600"); console.error(error); }
         };
         
-        window.acceptOnlineInvite = async function() { if (!currentPendingInvite) return; const inviteRef = doc(fbDb, ...getFbPath('invites', getSafeId(playerStats.id))); await setDoc(inviteRef, { ...currentPendingInvite, status: 'accepted' }); playerStats.opponentId = currentPendingInvite.from; currentMatchId = currentPendingInvite.matchId; isHost = false; modeSelect.value = 'online_friend'; handleModeChange(); hideModal('incoming-invite-modal'); joinFirebaseMatch(currentMatchId); if (!playerStats.knownOpponents.includes(currentPendingInvite.from)) { playerStats.knownOpponents.push(currentPendingInvite.from); saveSettings(); updateKnownOpponentsUI();} };
-        window.declineOnlineInvite = async function() { if (!currentPendingInvite) return; const inviteRef = doc(fbDb, ...getFbPath('invites', getSafeId(playerStats.id))); await setDoc(inviteRef, { ...currentPendingInvite, status: 'declined' }); hideModal('incoming-invite-modal'); };
+        window.acceptOnlineInvite = async function() { if (!currentPendingInvite) return; const inviteRef = doc(fbDb, 'artifacts', FIREBASE_APP_ID, 'public', 'data', 'invites', getSafeId(playerStats.id)); await setDoc(inviteRef, { ...currentPendingInvite, status: 'accepted' }); playerStats.opponentId = currentPendingInvite.from; currentMatchId = currentPendingInvite.matchId; isHost = false; modeSelect.value = 'online_friend'; handleModeChange(); hideModal('incoming-invite-modal'); joinFirebaseMatch(currentMatchId); if (!playerStats.knownOpponents.includes(currentPendingInvite.from)) { playerStats.knownOpponents.push(currentPendingInvite.from); saveSettings(); updateKnownOpponentsUI();} };
+        window.declineOnlineInvite = async function() { if (!currentPendingInvite) return; const inviteRef = doc(fbDb, 'artifacts', FIREBASE_APP_ID, 'public', 'data', 'invites', getSafeId(playerStats.id)); await setDoc(inviteRef, { ...currentPendingInvite, status: 'declined' }); hideModal('incoming-invite-modal'); };
         window.startMatchmaking = async function() {
             if (!isOnlineReady || !fbUser) return;
             waitingMode = 'matchmaking'; document.getElementById('waiting-title').innerText = t('waiting_matchmaking_title'); document.getElementById('waiting-opponent-name').innerText = t('waiting_matchmaking_desc'); hideModal('settings-modal'); showModal('waiting-modal');
             
             try {
-                const queueCol = collection(fbDb, ...getFbPath('matchmaking'));
+                const queueCol = collection(fbDb, 'artifacts', FIREBASE_APP_ID, 'public', 'data', 'matchmaking');
                 const querySnapshot = await getDocs(query(queueCol, limit(1)));
                 if (!querySnapshot.empty) {
                     const opponentDoc = querySnapshot.docs[0]; const opponentData = opponentDoc.data(); 
-                    await deleteDoc(doc(fbDb, ...getFbPath('matchmaking', opponentDoc.id))); 
+                    await deleteDoc(doc(fbDb, 'artifacts', FIREBASE_APP_ID, 'public', 'data', 'matchmaking', opponentDoc.id)); 
                     currentMatchId = opponentData.matchId; playerStats.opponentId = opponentData.playerId; isHost = false; 
-                    const matchRef = doc(fbDb, ...getFbPath('matches', currentMatchId)); 
+                    const matchRef = doc(fbDb, 'artifacts', FIREBASE_APP_ID, 'public', 'data', 'matches', currentMatchId); 
                     await setDoc(matchRef, { status: 'starting', j1: opponentData.playerId, j2: playerStats.id }, { merge: true }); 
                     hideModal('waiting-modal'); showTemporaryAlert(t('alert_found'), 'bg-green-600'); joinFirebaseMatch(currentMatchId);
                 } else {
                     currentMatchId = `match_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`; 
-                    const myQueueRef = doc(fbDb, ...getFbPath('matchmaking', getSafeId(playerStats.id))); 
+                    const myQueueRef = doc(fbDb, 'artifacts', FIREBASE_APP_ID, 'public', 'data', 'matchmaking', getSafeId(playerStats.id)); 
                     await setDoc(myQueueRef, { playerId: playerStats.id, matchId: currentMatchId, timestamp: Date.now() }); isHost = true; 
-                    const matchRef = doc(fbDb, ...getFbPath('matches', currentMatchId)); if (unsubscribeMatchmaking) unsubscribeMatchmaking();
+                    const matchRef = doc(fbDb, 'artifacts', FIREBASE_APP_ID, 'public', 'data', 'matches', currentMatchId); if (unsubscribeMatchmaking) unsubscribeMatchmaking();
                     unsubscribeMatchmaking = onSnapshot(matchRef, (snapshot) => { if (snapshot.exists()) { const matchData = snapshot.data(); if (matchData.status === 'starting' && matchData.j2) { if (unsubscribeMatchmaking) unsubscribeMatchmaking(); playerStats.opponentId = matchData.j2; hideModal('waiting-modal'); showTemporaryAlert(t('alert_joined'), 'bg-green-600'); joinFirebaseMatch(currentMatchId); } } });
                 }
             } catch (error) { console.error("Matchmaking error:", error); cancelWaitingAction(); }
         };
-        window.cancelWaitingAction = async function() { if (waitingMode === 'invite') { deleteDoc(doc(fbDb, ...getFbPath('invites', getSafeId(document.getElementById('waiting-opponent-name').innerText)))); listenToMyInvites(); } else if (waitingMode === 'matchmaking') { if (unsubscribeMatchmaking) unsubscribeMatchmaking(); deleteDoc(doc(fbDb, ...getFbPath('matchmaking', getSafeId(playerStats.id)))); } hideModal('waiting-modal'); showModal('settings-modal'); waitingMode = null; };
+        window.cancelWaitingAction = async function() { if (waitingMode === 'invite') { deleteDoc(doc(fbDb, 'artifacts', FIREBASE_APP_ID, 'public', 'data', 'invites', getSafeId(document.getElementById('waiting-opponent-name').innerText))); listenToMyInvites(); } else if (waitingMode === 'matchmaking') { if (unsubscribeMatchmaking) unsubscribeMatchmaking(); deleteDoc(doc(fbDb, 'artifacts', FIREBASE_APP_ID, 'public', 'data', 'matchmaking', getSafeId(playerStats.id))); } hideModal('waiting-modal'); showModal('settings-modal'); waitingMode = null; };
 
         // CHAT
         window.toggleChat = function() {
@@ -944,7 +927,7 @@
             const input = document.getElementById('chat-input'); const msg = input.value.trim();
             if (!msg || !currentMatchId || currentMode === 'solo') return;
             input.value = '';
-            const matchRef = doc(fbDb, ...getFbPath('matches', currentMatchId));
+            const matchRef = doc(fbDb, 'artifacts', FIREBASE_APP_ID, 'public', 'data', 'matches', currentMatchId);
             await updateDoc(matchRef, { chat: arrayUnion({ sender: playerStats.baseName, text: msg, time: Date.now() }) });
         };
         function renderChat(chatArray) {
@@ -961,7 +944,7 @@
 
         async function joinFirebaseMatch(matchId) {
             if (!fbUser) return; if (unsubscribeMatch) unsubscribeMatch(); resetGameLocal(); 
-            const matchRef = doc(fbDb, ...getFbPath('matches', matchId));
+            const matchRef = doc(fbDb, 'artifacts', FIREBASE_APP_ID, 'public', 'data', 'matches', matchId);
             document.getElementById('chat-toggle-btn').classList.remove('hidden'); 
             if (isHost) { const initExpires = Date.now() + turnDuration * 1000; await setDoc(matchRef, { boardState, currentPlayer, phase, piecesPlaced, lastMoveIndex, extraTurns, turnExpiresAt: initExpires }, {merge: true}); }
 
@@ -988,7 +971,7 @@
 
         async function pushMatchStateToFirebase(winnerId = null, isForfeit = false) {
             if (!isOnlineReady || currentMode === 'solo' || !currentMatchId) return;
-            const matchRef = doc(fbDb, ...getFbPath('matches', currentMatchId));
+            const matchRef = doc(fbDb, 'artifacts', FIREBASE_APP_ID, 'public', 'data', 'matches', currentMatchId);
             const expires = Date.now() + turnDuration * 1000;
             const dataToPush = { boardState, currentPlayer, phase, piecesPlaced, lastMoveIndex, extraTurns, turnExpiresAt: expires };
             if (winnerId) { dataToPush.winner = winnerId; if (isForfeit) dataToPush.isForfeit = true; }
